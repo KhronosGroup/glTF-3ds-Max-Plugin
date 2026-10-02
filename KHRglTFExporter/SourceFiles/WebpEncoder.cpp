@@ -24,32 +24,8 @@
 
 #include <webp/encode.h>
 
-#if _MSC_VER >= 1930    // Visual Studio 2022 (v143)
-#ifdef NDEBUG
-#pragma comment(lib, "webp/lib/vs2022/Release/libwebp.lib")
-#pragma comment(lib, "webp/lib/vs2022/Release/libsharpyuv.lib")
-#else
-#pragma comment(lib, "webp/lib/vs2022/Debug/libwebp.lib")
-#pragma comment(lib, "webp/lib/vs2022/Debug/libsharpyuv.lib")
-#endif
-#elif _MSC_VER >= 1920    // Visual Studio 2019 (v142)
-#ifdef NDEBUG
-#pragma comment(lib, "webp/lib/vs2019/Release/libwebp.lib")
-#pragma comment(lib, "webp/lib/vs2019/Release/libsharpyuv.lib")
-#else
-#pragma comment(lib, "webp/lib/vs2019/Debug/libwebp.lib")
-#pragma comment(lib, "webp/lib/vs2019/Debug/libsharpyuv.lib")
-#endif
-#else    //
-#ifdef NDEBUG
-#pragma comment(lib, "webp/lib/vs2017/Release/libwebp.lib")
-#pragma comment(lib, "webp/lib/vs2017/Release/libsharpyuv.lib")
-#else
-#pragma comment(lib, "webp/lib/vs2017/Debug/libwebp.lib")
-#pragma comment(lib, "webp/lib/vs2017/Debug/libsharpyuv.lib")
-#endif
-#endif
-
+#pragma comment(lib, "libwebp.lib")
+#pragma comment(lib, "libsharpyuv.lib")
 
 BOOL glTFExporter_Core::WebpEncode(Texmap* pTex, WebpTextureStruct &str)
 {

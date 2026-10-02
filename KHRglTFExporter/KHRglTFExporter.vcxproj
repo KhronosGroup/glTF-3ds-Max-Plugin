@@ -53,7 +53,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ImportGroup Label="PropertySheets">
-    <Import Project="$(ProjectDir)propertysheets\MaxSDKSetup.props" />
+    <Import Project="$(MSBuildProjectDirectory)\propertysheets\MaxSDKSetup.props" />
+    <Import Project="$(MSBuildProjectDirectory)\..\3rdParty\3rdParty_deps.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets">
     <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -75,7 +76,7 @@
     <ClCompile>
       <ConformanceMode>false</ConformanceMode>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>.\;.\include;.\Resource;$(MaxSDKPath)\include;$(MaxSDKPath)\modifiers\bonesdef;$(MaxSDKPath)\include\geom;$(MaxSDKPath)\samples\modifiers\morpher;..\3rd_Party_Products;..\3rd_Party_Products\KTX2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;.\include;.\tinygltf;.\Resource;$(MaxSDKPath)\include;$(MaxSDKPath)\modifiers\bonesdef;$(MaxSDKPath)\include\geom;$(MaxSDKPath)\samples\modifiers\morpher;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -103,7 +104,7 @@
     <Link>
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;comctl32.lib;bmm.lib;core.lib;geom.lib;gfx.lib;mesh.lib;maxutil.lib;maxscrpt.lib;gup.lib;paramblk2.lib;MNMath.lib;bonesDef.lib;Shlwapi.lib;assetmanagement.lib;iGame.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <AdditionalLibraryDirectories>$(MaxSDKPath)\lib\x64\Release;$(MaxSDKPath)\samples\modifiers\morpher\Lib\x64\Release;..\3rd_Party_Products;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MaxSDKPath)\lib\x64\Release;$(MaxSDKPath)\samples\modifiers\morpher\Lib\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>.\SourceFiles\KHRglTFExporter.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(OutDir)$(TargetName).pdb</ProgramDatabaseFile>
@@ -115,7 +116,7 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <PostBuildEvent>
-      <Command>echo F | xcopy /Y /Q "$(TargetPath)" "$(SolutionDir)Packages\3ds Max $(MaxSDKRelease)\Plugins\$(TargetFileName)"</Command>
+      <Command>echo F | xcopy /Y /Q "$(TargetPath)" "$(MSBuildProjectDirectory)\..\Packages\3ds Max $(MaxSDKRelease)\Plugins\$(TargetFileName)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(Configuration.Contains('Release'))">
@@ -130,7 +131,7 @@
       <ConformanceMode>false</ConformanceMode>
       <AdditionalOptions>/LD  %(AdditionalOptions)</AdditionalOptions>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
-      <AdditionalIncludeDirectories>.\;.\include;.\Resource;$(MaxSDKPath)\include;$(MaxSDKPath)\modifiers\bonesdef;$(MaxSDKPath)\include\geom;$(MaxSDKPath)\samples\modifiers\morpher;..\3rd_Party_Products;..\3rd_Party_Products\KTX2;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;.\include;.\Resource;.\tinygltf;$(MaxSDKPath)\include;$(MaxSDKPath)\modifiers\bonesdef;$(MaxSDKPath)\include\geom;$(MaxSDKPath)\samples\modifiers\morpher;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -155,7 +156,7 @@
     <Link>
       <AdditionalDependencies>odbc32.lib;odbccp32.lib;comctl32.lib;bmm.lib;core.lib;geom.lib;gfx.lib;mesh.lib;maxutil.lib;maxscrpt.lib;gup.lib;paramblk2.lib;MNMath.lib;bonesDef.lib;Shlwapi.lib;assetmanagement.lib;iGame.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <AdditionalLibraryDirectories>$(MaxSDKPath)\lib\x64\Release;$(MaxSDKPath)\samples\modifiers\morpher\Lib\x64\Release;..\3rd_Party_Products;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MaxSDKPath)\lib\x64\Release;$(MaxSDKPath)\samples\modifiers\morpher\Lib\x64\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>.\SourceFiles\KHRglTFExporter.def</ModuleDefinitionFile>
       <ProgramDatabaseFile>$(IntDir)KHRglTFExporter.pdb</ProgramDatabaseFile>
       <SubSystem>Windows</SubSystem>
@@ -167,7 +168,7 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <PostBuildEvent>
-      <Command>echo F | xcopy /Y /Q "$(TargetPath)" "$(SolutionDir)Packages\3ds Max $(MaxSDKRelease)\Plugins\$(TargetFileName)"</Command>
+      <Command>echo F | xcopy /Y /Q "$(TargetPath)" "$(MSBuildProjectDirectory)\..\Packages\3ds Max $(MaxSDKRelease)\Plugins\$(TargetFileName)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

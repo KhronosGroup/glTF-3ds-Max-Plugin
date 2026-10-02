@@ -20,7 +20,6 @@
  //#pragma warning( disable : 4819 )
 //#pragma warning( disable : 4828 )
 //#pragma warning( disable : 4267 )
-//#pragma comment(lib, "F:\\devel\\3ds Max 2021 SDK\\maxsdk\\lib\\x64\\Release\\bonesDef.lib")
 // Define these only in *one* .cc file.
 
 #define TINYGLTF_IMPLEMENTATION

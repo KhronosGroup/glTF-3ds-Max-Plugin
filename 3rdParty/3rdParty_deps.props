@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="Current"  xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <ThirdPartyRoot>$(MSBuildThisFileDirectory)</ThirdPartyRoot>
+    <ThirdPartyLibDir>$(MSBuildThisFileDirectory)_dist_v141\Release</ThirdPartyLibDir>
+    <ThirdPartyLibDir Condition="$(Configuration.Contains('Hybrid')) OR $(Configuration.Contains('Debug'))">$(MSBuildThisFileDirectory)_dist_v141\Debug</ThirdPartyLibDir>
+  </PropertyGroup>
+	
+  <!-- Check that the required third-party libraries exist, warn and abort if not -->
+  <Target Name="CheckThirdPartyDependencies" BeforeTargets="PrepareForBuild">
+    <ItemGroup>
+			<!-- Find .lib files corresponding to current configuration. This is just a quick and dirty check ! -->
+      <ThirdPartyLibs Condition="$(Configuration.Contains('Release'))" Include="$(MSBuildThisFileDirectory)_dist_v141\Release\*.lib" />
+      <ThirdPartyLibs Condition="$(Configuration.Contains('Hybrid')) OR $(Configuration.Contains('Debug'))" Include="$(MSBuildThisFileDirectory)_dist_v141\Debug\*.lib" />
+    </ItemGroup>
+		<Error Condition="'@(ThirdPartyLibs)' == ''" Text="Missing 3rdParty libraries. Run '3rdParty\build_dependencies.cmd' once to fetch and build them. Current build aborted." />
+  </Target>	
+	
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>
+				$(MSBuildThisFileDirectory)draco\installed\include;
+				$(MSBuildThisFileDirectory)jsoncpp\include;
+				$(MSBuildThisFileDirectory)KTX-Software\include;
+				$(MSBuildThisFileDirectory)KTX-Software\lib;
+				$(MSBuildThisFileDirectory)libwebp\src;
+				%(AdditionalIncludeDirectories)
+			</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ThirdPartyLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

@@ -34,9 +34,6 @@
     <Import Project="$(MaxSDKPath)\ProjectSettings\propertySheets\3dsmax.cpp.props" />	
     <Import Project="$(MaxSDKPath)\ProjectSettings\propertySheets\3dsmax.general.project.settings.props" />
 	</ImportGroup>
-  <PropertyGroup Label="Unpin 3ds Max SDK pinned MSVC tools version">
-		<VCToolsVersion></VCToolsVersion>
-  </PropertyGroup>
   <PropertyGroup Label="SDK Paths">
 		<IntDir>$(ProjectDir)build\$(Configuration)\</IntDir>
 		<OutDir>$(ProjectDir)bin\$(Configuration)\</OutDir>

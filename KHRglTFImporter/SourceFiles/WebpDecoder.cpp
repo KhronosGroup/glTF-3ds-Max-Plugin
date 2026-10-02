@@ -23,26 +23,7 @@
 
 #include "webp/decode.h"
 
-#if _MSC_VER >= 1930    // Visual Studio 2022 (v143)
-#ifdef NDEBUG
-#pragma comment(lib, "webp/lib/vs2022/Release/libwebpdecoder.lib")
-#else
-#pragma comment(lib, "webp/lib/vs2022/Debug/libwebpdecoder.lib")
-#endif
-#elif _MSC_VER >= 1920    // Visual Studio 2019 (v142)
-#ifdef NDEBUG
-#pragma comment(lib, "webp/lib/vs2019/Release/libwebpdecoder.lib")
-#else
-#pragma comment(lib, "webp/lib/vs2019/Debug/libwebpdecoder.lib")
-#endif
-#else    //
-#ifdef NDEBUG
-#pragma comment(lib, "webp/lib/vs2017/Release/libwebpdecoder.lib")
-#else
-#pragma comment(lib, "webp/lib/vs2017/Debug/libwebpdecoder.lib")
-#endif
-#endif
-
+#pragma comment(lib, "libwebpdecoder.lib")
 
 //===================================================================
 //===================================================================

@@ -1,8 +1,3 @@
-<!--
-SPDX-FileCopyrightText: The Khronos Group, Inc.
-SPDX-License-Identifier: Apache-2.0
--->
-
 # 📦 glTF 2.0 Importer/Exporter for Autodesk 3ds Max
 
 This project adds glTF™ (2.0) file access capabilities to Autodesk 3ds Max®, providing a seamless round-trip workflow for importing, editing, and exporting 3D content in glTF format.
@@ -21,14 +16,14 @@ This project adds glTF™ (2.0) file access capabilities to Autodesk 3ds Max®, 
 
 This project consists of two main plug-in build projects:
 
-- **`KHRglTFImporter`**: A plug-in to import glTF files into 3ds Max scenes.
-- **`KHRglTFExporter`**: A plug-in to export 3ds Max scene data to glTF files.
+- <b>`KHRglTFImporter`</b>: A plug-in to import glTF files into 3ds Max scenes.
+- <b>`KHRglTFExporter`</b>: A plug-in to export 3ds Max scene data to glTF files.
 
 ---
 
 ## 📖 User Documentation
 
-**[End-User Documentation](./User_Documentation/README.md)** is divided into sections:
+<b>[End-User Documentation](./User_Documentation/README.md)</b> is divided into sections:
 
 - **glTF Importer** options for importing and formatting the scene for use in 3ds Max.
 - **glTF Editing** tools within 3ds Max for editing and preparing glTF content.
@@ -46,6 +41,7 @@ To build or use this project, the following environment is required:
 - **MSVC v143 - VS 2022 C++ x64/x86 build tools**: For 3ds Max 2026, and 2027
 - **MSVC v142 - VS 2019 C++ x64/x86 build tools**: For 3ds Max 2023, 2024 and 2025
 - **MSVC v141 - VS 2017 C++ x64/x86 build tools**: For 3ds Max 2020, 2021 and 2022
+- **Git** and **CMake** executables in your PATH to build the 3rd-party dependencies
 
 ### 🧰 Required SDK
 
@@ -68,17 +64,27 @@ If environment variables are missing, you must manually set them to point to the
 | 2026            | `ADSK_3DSMAX_SDK_2026`    |
 | 2027            | `ADSK_3DSMAX_SDK_2027`    |
 
+### 🛠️ Initial Building of 3rd-Party Dependencies
+
+The project depends on several prebuilt 3rd-party libraries, which must be available in the <b>`3rdParty\_dist\_v141\Debug`</b> and <b>`3rdParty\_dist\_v141\Release`</b> directories.
+
+- A batch script is provided to build these libraries from source: <b>`3rdParty\build_dependencies.cmd`</b>
+- The script should be run once from a **Visual Studio x64 Developer Command Prompt**.
+- The script will fetch, build, and install all required dependencies into <b>`3rdParty\_dist_v141`</b>.
+- The script relies on **MSVC v141 - VS 2017 C++ x64/x86 build tools** to be installed.
+- The <b>`BuildAll.cmd`</b> and <b>`BuildForAvailableSDKs.cmd`</b> described below perform this step automatically.
+
 ### 🛠️ Building the Project
 
 The solution includes two primary build configurations for each 3ds Max version:
 
-- **`Release-{Max Version}`**: Production-ready build.
-- **`Hybrid-{Max Version}`**: Optimized build with debug symbols (for development).
+- <b>`Release-{Max Version}`</b>: Production-ready build.
+- <b>`Hybrid-{Max Version}`</b>: Optimized build with debug symbols (for development).
 
 To build all release configurations at once, either use Visual Studio's "Batch Build..." functionality or run one of the accompanying batch scripts from inside the **Visual Studio x64 Developer Command Prompt**:
 
-- **`BuildAll.cmd`**: Build for all 3ds Max Versions
-- **`BuildForAvailableSDKs.cmd`**: Build for all 3ds Max Versions with matching SDK available
+- <b>`BuildAll.cmd`</b>: Build for all 3ds Max Versions
+- <b>`BuildForAvailableSDKs.cmd`</b>: Build for all 3ds Max Versions with matching SDK available
 
 ### 🔧 Adding New 3ds Max Versions
 
@@ -90,10 +96,8 @@ The example below adds the build configuration for 3ds Max 2027 by cloning and e
 
 - **Solution File (`KHRglTF.sln`)**
   Duplicate all lines containing `Max2026` and change the target to `Max2027` in the new lines.
-
 - **Project Files (`KHRglTFImporter.vcxproj`, `KHRglTFExporter.vcxproj`)**
   Duplicate the XML `<ProjectConfiguration>` elements containing `Max2026`. Update the year to `Max2027` for both the **Release** and **Hybrid** configurations.
-
 - **Property Sheets (`MaxSDKSetup.props`)**
   Duplicate the XML lines/property groups containing `Max2026` and update them to `Max2027`.
 
@@ -148,7 +152,7 @@ This project incorporates the following open-source libraries. We acknowledge an
 - [TinyGLTF](https://github.com/syoyo/tinygltf): Licensed under the MIT License. Copyright © 2015-Present Syoyo Fujita.
 - [cgltf](https://github.com/jkuhlmann/cgltf): Licensed under the MIT License. Copyright © 2018 Johannes Kuhlmann.
 
-_Note: TinyGLTF and cgltf may require modifications for specific glTF extension support._
+_Note: TinyGLTF and cgltf may require modifications for specific glTF extension support and are located in the corresponding 3ds Max plugin project folder._
 
 For more information regarding these licenses, please refer to the documentation provided within the source repository.
 

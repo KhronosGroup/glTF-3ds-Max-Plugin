@@ -21,28 +21,9 @@
 
 #undef max
 #undef min
-#include "draco/compression/decode.h"
+#include <draco/compression/decode.h>
 
-#if _MSC_VER >= 1930    // Visual Studio 2022 (v143)
-#ifdef NDEBUG
-#pragma comment(lib, "draco/lib/vs2022/Release/draco.lib")
-#else
-#pragma comment(lib, "draco/lib/vs2022/Debug/draco.lib")
-#endif
-#elif _MSC_VER >= 1920    // Visual Studio 2019 (v142)
-#ifdef NDEBUG
-#pragma comment(lib, "draco/lib/vs2019/Release/draco.lib")
-#else
-#pragma comment(lib, "draco/lib/vs2019/Debug/draco.lib")
-#endif
-#else    //
-#ifdef NDEBUG
-#pragma comment(lib, "draco/lib/vs2017/Release/draco.lib")
-#else
-#pragma comment(lib, "draco/lib/vs2017/Debug/draco.lib")
-#endif
-#endif
-
+#pragma comment(lib, "draco.lib")
 
 //=======================================================================
 // Create vertex ID list from compressed buffer

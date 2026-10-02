@@ -21,28 +21,9 @@
 #include <AssetManagement/iassetmanager.h>
 //#include <AssetManagement/AssetUser.h>
 #include <fstream>
-#include <jsoncpp/json.h>
+#include <json/json.h>
 
-#if _MSC_VER >= 1930    // Visual Studio 2022 (v143)
-#ifdef NDEBUG
-#pragma comment(lib, "jsoncpp/lib/vs2022/Release/jsoncpp_static.lib")
-#else
-#pragma comment(lib, "jsoncpp/lib/vs2022/Debug/jsoncpp_static.lib")
-#endif
-#elif _MSC_VER >= 1920    // Visual Studio 2019 (v142)
-#ifdef NDEBUG
-#pragma comment(lib, "jsoncpp/lib/vs2019/Release/jsoncpp_static.lib")
-#else
-#pragma comment(lib, "jsoncpp/lib/vs2019/Debug/jsoncpp_static.lib")
-#endif
-#else    //
-#ifdef NDEBUG
-#pragma comment(lib, "jsoncpp/lib/vs2017/Release/jsoncpp_static.lib")
-#else
-#pragma comment(lib, "jsoncpp/lib/vs2017/Debug/jsoncpp_static.lib")
-#endif
-#endif
-
+#pragma comment(lib, "jsoncpp_static.lib")
 
 extern  int GetImportedNodeTab(INodeTab &tab);
 

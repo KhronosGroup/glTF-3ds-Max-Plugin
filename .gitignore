@@ -1,4 +1,5 @@
 .vs/
+3rdParty/*/
 **/Hybrid*/
 **/Debug*/
 **/Release*/

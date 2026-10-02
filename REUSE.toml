@@ -14,7 +14,7 @@ SPDX-License-Identifier = "Apache-2.0"
 [[annotations]]
 precedence = "closest"
 path = [
-    "3rd_Party_Products/cgltf/**",
+    "KHRglTFImporter/cgltf/**",
 ]
 SPDX-FileCopyrightText = "Johannes Kuhlmann"
 SPDX-License-Identifier = "MIT"
@@ -22,7 +22,7 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 precedence = "closest"
 path = [
-    "3rd_Party_Products/draco/**",
+    "3rdParty/draco/**",
 ]
 SPDX-FileCopyrightText = "The Draco Authors"
 SPDX-License-Identifier = "Apache-2.0"
@@ -30,7 +30,7 @@ SPDX-License-Identifier = "Apache-2.0"
 [[annotations]]
 precedence = "closest"
 path = [
-    "3rd_Party_Products/jsoncpp",
+    "3rdParty/jsoncpp",
 ]
 SPDX-FileCopyrightText = "Baptiste Lepilleur and The JsonCpp Authors"
 SPDX-License-Identifier = "MIT"
@@ -39,33 +39,15 @@ SPDX-License-Identifier = "MIT"
 [[annotations]]
 precedence = "closest"
 path = [
-    "3rd_Party_Products/tinygltf/deps/cpplint.py",
-]
-SPDX-FileCopyrightText = "Google Inc"
-SPDX-License-Identifier = "BSD-3-Clause"
-
-
-[[annotations]]
-precedence = "closest"
-path = [
-    "3rd_Party_Products/tinygltf/**"
+    "KHRglTFExporter/tinygltf/**"
 ]
 SPDX-FileCopyrightText = "Syoyo Fujita, Aurélien Chatelain and many contributors"
 SPDX-License-Identifier = "MIT"
 
-
 [[annotations]]
 precedence = "closest"
 path = [
-    "3rd_Party_Products/tinygltf/examples/common/glm",
-]
-SPDX-FileCopyrightText = "G-Truc Creation"
-SPDX-License-Identifier = "MIT"
-
-[[annotations]]
-precedence = "closest"
-path = [
-    "3rd_Party_Products/webp/**"
+    "3rdParty/webp/**"
 ]
 SPDX-FileCopyrightText = "Google Inc"
 SPDX-License-Identifier = "BSD-3-Clause"
