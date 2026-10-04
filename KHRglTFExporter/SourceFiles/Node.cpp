@@ -274,15 +274,17 @@ tinygltf::Node glTFExporter_Core::CreateNodeDataRec(INode *pNode, BOOL recursive
 	//tm.SetTrans(tm.GetTrans() * m_scale);
 	//tm = tm * Inverse(objTM);
 	if (pNode->GetParentNode()->IsRootNode()) {
-		if (m_ResetPivotTM)tm =  tm;
-		else tm = Inverse(GetOffsetTM(pNode)) * tm;
+		if (!m_ResetPivotTM) 
+			tm = Inverse(GetOffsetTM(pNode)) * tm;
+		
 		tm = tm * YupTM;
 	}
 	else {
 		//Matrix3 ParentOffsetTM = GetOffsetTM(pNode->GetParentNode());
 		//tm = tm * Inverse(pNode->GetParentTM(m_time) * ParentOffsetTM);
-		if (m_ResetPivotTM)tm = tm;
-		else tm = Inverse(GetOffsetTM(pNode)) * tm;
+		if (!m_ResetPivotTM)
+			tm = Inverse(GetOffsetTM(pNode)) * tm;
+
 		tm = tm * Inverse(pNode->GetParentTM(m_time));
 	}
 
