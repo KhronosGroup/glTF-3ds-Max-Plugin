@@ -86,10 +86,10 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 			size_t CharSize = (len1 < len2) ? len1 : len2; //endp - p;
 			size_t ByteSize = (CharSize * 3) / 4;
 			//if (CharSize % 4 != 0) ByteSize += 1;
-			cgltf_options options = { 0 };
+			cgltf_options options = {};
 
-			void* out_data = new char[ByteSize];
-			cgltf_result ret = cgltf_load_buffer_base64(&options, ByteSize, p, &out_data);
+			char* out_data = new char[ByteSize];
+			cgltf_result ret = cgltf_load_buffer_base64(&options, ByteSize, p, reinterpret_cast<void**>(&out_data));
 
 			char base_name[MAX_PATH];
 			if (image->name) {
@@ -117,10 +117,12 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 
 			FILE* fp = nullptr;
 			errno_t err = fopen_s(&fp, name, "wb");
+			
 			if (err) { delete[] out_data; return StringToWString(name); }
 
 			fwrite(out_data, ByteSize, 1, fp);
 			fclose(fp);
+			
 			delete[] out_data;
 			fname = StringToWString(name);
 			m_EmbedFormat = TRUE;
