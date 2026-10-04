@@ -1486,7 +1486,7 @@ void glTFImporter_Core::SetSparseData(std::vector<float>& retVal, cgltf_accessor
 /// TODO: throws exception when importing Khronos gltf-meshopt samples
 /// !!! This function crashes at memcpy when importing Khronos meshopt samples 
 /// BrainStem\glTF-Meshopt\BrainStem.gltf
-/// glTF-Meshopt\DragonAttenuation.gltf
+/// DragonAttenuation\glTF-Meshopt\DragonAttenuation.gltf
 
 void glTFImporter_Core::SetSparseData(std::vector<float>& retVal, cgltf_accessor* acc)
 {
