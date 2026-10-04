@@ -96,15 +96,21 @@ tstring GetURILFromFile(std::string &f)
 
 	int size = stbuf.st_size;
 
-	unsigned char *data = (unsigned char*)malloc(size);
 	FILE* pFp = nullptr;
 	errno_t err = _tfopen_s(&pFp, fname.c_str(), _T("rb"));
-	if (err) return tstring(_T(""));
+	if (err != 0 || pFp == nullptr ) return tstring(_T(""));
+
+	unsigned char *data = (unsigned char*)malloc(size);
+	if (data == nullptr) return tstring(_T(""));
+	
 	fread(data, sizeof(unsigned char), size, pFp);
 	fclose(pFp);
 
 	std::string str;
 	base64_encode(data, size, str);
+
+	// free memory, would leak otherwise
+	free(data);
 
 	return StringToWString(str.c_str());
 }
