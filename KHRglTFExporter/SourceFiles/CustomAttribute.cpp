@@ -386,7 +386,7 @@ BOOL glTFExporter_Core::SetAnisotropyParams(MtlBase* pMtl, AnisotropyStruct& str
 	animated = FALSE;
 	str.strength = 0.0f;
 	str.rotation = 0.0f;
-	str.texture = NULL;
+	str.texture = nullptr;
 
 	IParamBlock2* pBlock = GetCustAttrPBlock(pMtl, tstring(_T("Anisotropy")));
 	if (!pBlock) return FALSE;
@@ -395,6 +395,7 @@ BOOL glTFExporter_Core::SetAnisotropyParams(MtlBase* pMtl, AnisotropyStruct& str
 	pBlock->GetValueByName(_T("anisotropyStrength"), m_time, str.strength, FOREVER, 0);
 	pBlock->GetValueByName(_T("anisotropyRotation"), m_time, str.rotation, FOREVER, 0);
 
+	// TODO: constant false condition ?
 	if(str.texture)
 		pBlock->GetValueByName(_T("anisotropyTexture"), m_time, str.texture, FOREVER, 0);
 
@@ -413,8 +414,8 @@ BOOL glTFExporter_Core::SetSpecularParams(MtlBase* pMtl, SpecularStruct& str, BO
 	animated = FALSE;
 	str.factor = 1.0f;
 	str.color = Color(1.0f, 1.0f, 1.0f);
-	str.pMap = NULL;
-	str.pColMap = NULL;
+	str.pMap = nullptr;
+	str.pColMap = nullptr;
 
 	IParamBlock2* pBlock = GetCustAttrPBlock(pMtl, tstring(_T("Specular")));
 	if (!pBlock) return FALSE;
@@ -424,10 +425,12 @@ BOOL glTFExporter_Core::SetSpecularParams(MtlBase* pMtl, SpecularStruct& str, BO
 
 	if(str.color )
 		pBlock->GetValueByName(_T("specularColorFactor"), m_time, str.color, FOREVER, 0);
-		
+
+	// TODO: constant false condition ?
 	if(str.pMap )
 		pBlock->GetValueByName(_T("specularTexture"), m_time, str.pMap, FOREVER, 0);
-		
+
+	// TODO: constant false condition ?
 	if(str.pColMap )
 		pBlock->GetValueByName(_T("specularColorTexture"), m_time, str.pColMap, FOREVER, 0);
 
