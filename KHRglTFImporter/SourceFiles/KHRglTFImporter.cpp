@@ -1783,6 +1783,10 @@ int FindModifier(INode* pNode, const Class_ID &CID, Modifier **pMod)
 }
 
 //======================================================================
+// TODO: check this function's implementation and need for custom 
+// unicode escape handling. if possible make use of possibly existing 
+// API's in one of the json libs already used by the project
+// 
 //   Char. number range  |        UTF-8 octet sequence
 //      (hexadecimal)    |              (binary)
 //   --------------------+---------------------------------------------
@@ -1926,6 +1930,9 @@ std::string UTF8toSjis(std::string srcUTF8)
 
 //======================================================================
 //	string to wstring
+// TODO: check this function's implementation and need for custom 
+// unicode escape handling. if possible make use of possibly existing 
+// API's in one of the json libs already used by the project
 //======================================================================
 std::wstring StringToWString(const char *oStringOrg, int code)
 {
