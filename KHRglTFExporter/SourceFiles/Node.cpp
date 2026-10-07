@@ -300,13 +300,13 @@ tinygltf::Node glTFExporter_Core::CreateNodeDataRec(INode *pNode, BOOL recursive
 		node.rotation.push_back(parts.q.y);
 		node.rotation.push_back(parts.q.z);
 		node.rotation.push_back(-parts.q.w);
-		node.translation.push_back(parts.t.x / parentInfo.meshScale * m_scale);
-		node.translation.push_back(parts.t.y / parentInfo.meshScale * m_scale);
-		node.translation.push_back(parts.t.z / parentInfo.meshScale * m_scale);
+		node.translation.push_back(parts.t.x   / parentInfo.meshScale);
+		node.translation.push_back(parts.t.y   / parentInfo.meshScale);
+		node.translation.push_back(parts.t.z   / parentInfo.meshScale);
 
-		node.scale.push_back(parts.k.x * quantInfo.meshScale   / parentInfo.meshScale * m_scale);
-		node.scale.push_back(parts.k.y * quantInfo.meshScale   / parentInfo.meshScale * m_scale);
-		node.scale.push_back(parts.k.z * quantInfo.meshScale   / parentInfo.meshScale * m_scale);
+		node.scale.push_back(parts.k.x * quantInfo.meshScale   / parentInfo.meshScale);
+		node.scale.push_back(parts.k.y * quantInfo.meshScale   / parentInfo.meshScale);
+		node.scale.push_back(parts.k.z * quantInfo.meshScale   / parentInfo.meshScale);
 	}
 	else {
 		Control* pC = pNode->GetTMController();

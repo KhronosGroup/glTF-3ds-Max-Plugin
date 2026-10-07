@@ -652,7 +652,6 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 				bfView.buffer = 0;
 				bfView.byteOffset = m_BufferByteOffset;
-				bfView.target = TINYGLTF_TARGET_ARRAY_BUFFER;
 				if (m_Mesh_quantization_Used) {
 					bfView.byteLength = acc.count * 4;
 					bfView.byteStride = 4;
@@ -660,10 +659,11 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 				else {
 					bfView.byteLength = acc.count * sizeof(float) * 2;
 				}
+				bfView.target = TINYGLTF_TARGET_ARRAY_BUFFER;
 
 				MeshMap* pMap = &pMesh->Map(mapCh);
 				UVVert* pSrcUV = pMap->tv;
-				TVFace* pTVFace = pMap->tf;// pMesh->mapFaces(mapCh);
+				TVFace* pTVFace = pMesh->mapFaces(mapCh);
 				//Point3 minUV = *pSrcUV * Point3(1.0f, -1.0f, 0.0f);
 				//Point3 maxUV = *pSrcUV * Point3(1.0f, -1.0f, 0.0f);
 
