@@ -85,6 +85,9 @@ BOOL glTFExporter_Core::KTX2Encode(Texmap* pTex, KTX2TextureStruct& toKTX)
         return FALSE;
     }
 
+    if(!pBmp)
+        return FALSE;
+
     BitmapInfo bi = pBmp->GetBitmapInfo();
 
     if(bi.Width() <= 0 || bi.Height() <= 0)
