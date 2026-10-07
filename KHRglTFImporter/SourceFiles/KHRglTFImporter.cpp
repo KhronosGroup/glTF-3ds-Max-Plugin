@@ -1023,8 +1023,8 @@ BOOL glTFImporter_Core::ImportScene(BOOL suppressPrompts)
 	if (m_glTF_data->extensions_used_count>0) {
 		for (int i = 0; i < m_glTF_data->extensions_used_count;i++) {
 			char *ptr = m_glTF_data->extensions_used[i];
-			if (!_stricmp(ptr, "EXT_meshopt_compression")) {
-				if(!suppressPrompts) MessageBox(GetCOREInterface()->GetMAXHWnd(), _T("WARNING:EXT_meshopt_compression is not supported."), _T("File Import Failed"), MB_OK | MB_ICONWARNING);
+			if ( _stricmp(ptr, "EXT_meshopt_compression") == 0 || _stricmp(ptr, "KHR_meshopt_compression") == 0 ) {
+				if(!suppressPrompts) MessageBox(GetCOREInterface()->GetMAXHWnd(), _T("WARNING: EXT_meshopt_compression is not supported."), _T("File Import Failed"), MB_OK | MB_ICONWARNING);
 				cgltf_free(m_glTF_data);
 				return FALSE;
 			}
