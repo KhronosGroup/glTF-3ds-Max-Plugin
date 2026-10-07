@@ -691,7 +691,6 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 					}
 					else{
 						*pTexUV++ = p.x;
-						*pTexUV++ = p.x;
 						*pTexUV++ = p.y;
 					}
 				}
