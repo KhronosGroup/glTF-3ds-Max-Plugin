@@ -42,26 +42,29 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 
 	originalFname.clear();
 
-	cgltf_image* image = NULL;
-	if (tex->has_basisu) {
-		image = tex->basisu_image;
-	}
-	else {
-		image = tex->image;
-	}
-	if (tex->extensions_count > 0) {
-		for (int i = 0; i < tex->extensions_count;i++) {
+	cgltf_image* image = tex->has_basisu ? tex->basisu_image :  tex->image;
+
+	if(tex->extensions_count > 0 && tex->extensions) {
+		for(int i = 0; i < tex->extensions_count; i++) {
+
+			// skip extensions with no name or data 
+			if(!tex->extensions[i].name || !tex->extensions[i].data)
+				continue;
+
 			char* name = tex->extensions[i].name;
-			if (!strcmp(name, "EXT_texture_webp")) {
+
+			if(!strcmp(name, "EXT_texture_webp")) {
 				char* data = tex->extensions[i].data;
 				char* ptr = strchr(data, ':');
-				if (!ptr) break;
+				if(!ptr) continue;
 				ptr++;
 				int idx = atoi(ptr);
 				image = &m_glTF_data->images[idx];
 				//webp_flag = TRUE;
 				break;
-			}else if (!strcmp(name, "KHR_texture_basisu")) {
+			}
+			// TODO: code block has no effect
+			else if(!strcmp(name, "KHR_texture_basisu")) {
 				char* data = tex->extensions[i].data;
 				char* ptr = strchr(data, ':');
 				//ktx2_flag = TRUE;
@@ -69,9 +72,14 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 		}
 	}
 
-	const char* uri = image->uri;
+	if(!image) {
+		return _T("");
+	}
+
 	//int size = image->buffer_view->size;
-	if (uri) {
+	if (image->uri) {
+		const char* uri = image->uri;
+		
 		if (strncmp(uri, "data:", 5) == 0) {
 			const char* p = strchr(uri, ';');
 			char buf[MAX_PATH];
@@ -184,7 +192,7 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 		}
 	}
 	else if (strlen(image->mime_type) > 1) {
-		const char* type = MimeTypes::getExtension(image->mime_type);
+		const char* fileExt = MimeTypes::getExtension(image->mime_type);
 		cgltf_buffer_view* bufferview = image->buffer_view;
 		cgltf_buffer* buffer = bufferview->buffer;
 		size_t offset = bufferview->offset;
@@ -197,10 +205,22 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 			strncpy_s(base_name, MAX_PATH, image->name, MAX_PATH);
 			char* ptr = strchr(base_name, '.');
 			if (ptr) *(ptr + 1) = 0;
-			strcat_s(base_name, MAX_PATH, type);
+			strcat_s(base_name, MAX_PATH, fileExt);
 		}
-		else if (tex->name)	strncpy_s(base_name, MAX_PATH, tex->name, MAX_PATH);
-		else 				sprintf_s(base_name, MAX_PATH, "texture_%d.%s", (UINT)m_TextureMap.size(), type);
+		else if(tex->name)	{
+			// fileExt from the mimetype should get priority over tex->name, as the second can be wrong/missleading 
+			// 3ds Max doesnt like file textures that use the wrong file extension
+			// eg jpg instead of png, see glass_vase_thickness_1k.jpg in the file below
+			// https://github.com/KhronosGroup/glTF-Sample-Assets/blob/edc7c9e67/Models/GlassVaseFlowers/glTF-Binary/GlassVaseFlowers.glb
+
+			fs::path texFile = tex->name;			
+			if(texFile.has_extension() && texFile.extension() != fileExt) {
+				texFile.replace_extension(fileExt);
+				strncpy_s(base_name, MAX_PATH, texFile.string().c_str(), MAX_PATH);
+			}
+			else strncpy_s(base_name, MAX_PATH, tex->name, MAX_PATH);
+		}
+		else sprintf_s(base_name, MAX_PATH, "texture_%d.%s", (UINT)m_TextureMap.size(), fileExt);
 
 		tstring str = StringToWString(base_name);
 		auto pos = str.rfind('\\');
@@ -210,7 +230,7 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 
 		if (str.rfind(_T(".")) == std::string::npos) {
 			TCHAR buf[1000];
-			_stprintf_s(buf, _countof(buf), _T("%s_%d.%s"), str.c_str(), (UINT)m_TextureMap.size(), StringToWString(type).c_str()); 
+			_stprintf_s(buf, _countof(buf), _T("%s_%d.%s"), str.c_str(), (UINT)m_TextureMap.size(), StringToWString(fileExt).c_str()); 
 			str = tstring(buf);
 		}
 		//char name[MAX_PATH];
@@ -219,7 +239,7 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 
 		FILE* fp = nullptr;
 		errno_t err = _tfopen_s(&fp, fname.c_str(), _T("wb"));
-		if (err == 0) {
+		if (fp && err == 0) {
 			fwrite(ptr, size, 1, fp);
 			fclose(fp);
 		}
@@ -1111,26 +1131,25 @@ void glTFImporter_Core::CorrectBitmapGamma(BitmapTex*& pBmpTex, float gamma, BOO
 		if (custom) {
 #if MAX_RELEASE >= 26000
 			if (gamma == 1.0f) {
-
 				Bitmap* pBmp = pBmpTex->GetBitmap(0);
+				if(pBmp == nullptr)
+					return;
+
 				BitmapInfo* bi = &pBmp->GetBitmapInfo();
 
-				{
-					//auto cpm = MaxSDK::ColorManagement::IColorPipelineMgr::GetInstance();
-					MaxSDK::ColorManagement::IColorPipelineMgr* cpm = (MaxSDK::ColorManagement::IColorPipelineMgr*)GetCOREInterface(COLORPIPELINEMGR_INTERFACE);
+				//auto cpm = MaxSDK::ColorManagement::IColorPipelineMgr::GetInstance();
+				MaxSDK::ColorManagement::IColorPipelineMgr* cpm = (MaxSDK::ColorManagement::IColorPipelineMgr*)GetCOREInterface(COLORPIPELINEMGR_INTERFACE);
 
-					auto settings = cpm->Settings();
-					if (settings->IsOCIOBased())
-					{
-						BitmapInfo bmi(*bi);
-						auto ret = bmi.SetRequestedColorSpace(settings->GetDataColorSpaceName(), MaxSDK::ColorManagement::ColSpaceSource::User);
-						bmi.SetName(pBmpTex->GetMapName());
-						bmi.ResetCustomFlag(BMM_CUSTOM_FILEGAMMA);
-						bmi.SetCustomFlag(BMM_CUSTOM_GAMMA);
-						bmi.SetCustomGamma(gamma);
-						pBmpTex->SetBitmapInfo(bmi);
-					}
-
+				auto settings = cpm->Settings();
+				
+				if (settings->IsOCIOBased()) {
+					BitmapInfo bmi(*bi);
+					auto ret = bmi.SetRequestedColorSpace(settings->GetDataColorSpaceName(), MaxSDK::ColorManagement::ColSpaceSource::User);
+					bmi.SetName(pBmpTex->GetMapName());
+					bmi.ResetCustomFlag(BMM_CUSTOM_FILEGAMMA);
+					bmi.SetCustomFlag(BMM_CUSTOM_GAMMA);
+					bmi.SetCustomGamma(gamma);
+					pBmpTex->SetBitmapInfo(bmi);
 				}
 			}
 #else
