@@ -978,7 +978,7 @@ BOOL glTFExporter_Core::CreateTransmissionTexture(tinygltf::Material& material, 
 
 	tinygltf::Value::Object obj;
 	if (pTex) {
-		int index = index = findTextureIndex(pTex, _T(""),TRUE);
+		int index = findTextureIndex(pTex, _T(""),TRUE);
 
 		tinygltf::Value::Object texIdx;
 		texIdx.insert(std::make_pair("index", tinygltf::Value(index)));

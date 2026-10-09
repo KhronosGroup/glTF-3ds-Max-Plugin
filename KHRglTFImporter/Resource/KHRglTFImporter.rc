@@ -204,7 +204,7 @@ BEGIN
     LTEXT           "",IDC_TEX_COUNT,120,41,66,12
     LTEXT           "",IDC_SKIN_COUNT,120,53,66,12
     LTEXT           "",IDC_ANIM_COUNT,120,65,66,12
-    LTEXT           "Phyisic import",IDC_STATIC,17,78,56,12,0,WS_EX_RIGHT
+    LTEXT           "Physic import",IDC_STATIC,17,78,56,12,0,WS_EX_RIGHT
     LTEXT           "",IDC_PHYSIC_STATE,77,78,41,12
     LTEXT           "",IDC_PHYSIC_COUNT,119,78,66,12
 END

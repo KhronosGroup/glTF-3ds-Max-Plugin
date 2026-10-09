@@ -1023,8 +1023,8 @@ BOOL glTFImporter_Core::ImportScene(BOOL suppressPrompts)
 	if (m_glTF_data->extensions_used_count>0) {
 		for (int i = 0; i < m_glTF_data->extensions_used_count;i++) {
 			char *ptr = m_glTF_data->extensions_used[i];
-			if (!_stricmp(ptr, "EXT_meshopt_compression")) {
-				if(!suppressPrompts) MessageBox(GetCOREInterface()->GetMAXHWnd(), _T("WARNING:EXT_meshopt_compression is not supported."), _T("File Import Failed"), MB_OK | MB_ICONWARNING);
+			if ( _stricmp(ptr, "EXT_meshopt_compression") == 0 || _stricmp(ptr, "KHR_meshopt_compression") == 0 ) {
+				if(!suppressPrompts) MessageBox(GetCOREInterface()->GetMAXHWnd(), _T("WARNING: EXT_meshopt_compression is not supported."), _T("File Import Failed"), MB_OK | MB_ICONWARNING);
 				cgltf_free(m_glTF_data);
 				return FALSE;
 			}
@@ -1486,7 +1486,7 @@ void glTFImporter_Core::SetSparseData(std::vector<float>& retVal, cgltf_accessor
 /// TODO: throws exception when importing Khronos gltf-meshopt samples
 /// !!! This function crashes at memcpy when importing Khronos meshopt samples 
 /// BrainStem\glTF-Meshopt\BrainStem.gltf
-/// glTF-Meshopt\DragonAttenuation.gltf
+/// DragonAttenuation\glTF-Meshopt\DragonAttenuation.gltf
 
 void glTFImporter_Core::SetSparseData(std::vector<float>& retVal, cgltf_accessor* acc)
 {
@@ -1783,6 +1783,10 @@ int FindModifier(INode* pNode, const Class_ID &CID, Modifier **pMod)
 }
 
 //======================================================================
+// TODO: check this function's implementation and need for custom 
+// unicode escape handling. if possible make use of possibly existing 
+// API's in one of the json libs already used by the project
+// 
 //   Char. number range  |        UTF-8 octet sequence
 //      (hexadecimal)    |              (binary)
 //   --------------------+---------------------------------------------
@@ -1926,6 +1930,9 @@ std::string UTF8toSjis(std::string srcUTF8)
 
 //======================================================================
 //	string to wstring
+// TODO: check this function's implementation and need for custom 
+// unicode escape handling. if possible make use of possibly existing 
+// API's in one of the json libs already used by the project
 //======================================================================
 std::wstring StringToWString(const char *oStringOrg, int code)
 {

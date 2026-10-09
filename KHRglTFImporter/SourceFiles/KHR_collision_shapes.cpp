@@ -213,7 +213,6 @@ void glTFImporter_Core::CreateRigidTable(INode* pNode, char* data)
             auto v2 = v1["geometry"];
             if (v2.isMember("shape"))        info.shape = v2["shape"].asInt();
         }
-    } else if (root.isMember("collider")) {
     }
     else {
     }

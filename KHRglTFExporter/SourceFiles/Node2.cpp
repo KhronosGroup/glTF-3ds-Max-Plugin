@@ -533,9 +533,7 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 					bfView.byteLength = acc.count * 4;
 					bfView.byteStride = 4;
 				}
-				else {
-					bfView.byteLength = acc.count * sizeof(float) * 3;
-				}
+
 				void* ptr = SecureMemory(bfView.byteLength);
 				float* pTan = (float*)((char*)ptr + bfView.byteOffset);
 				char* pTanQ = (char*)((char*)ptr + bfView.byteOffset);
