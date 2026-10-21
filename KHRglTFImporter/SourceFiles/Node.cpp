@@ -631,7 +631,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			*/
 		}
 		else if (tex1Num > 0) {
-			//NewMesh.setMapSupport(1, TRUE);
+			NewMesh.setMapSupport(1, TRUE);
 			NewMesh.setNumMapVerts(1, (int)(VertNum + VertOffset), TRUE);
 			NewMesh.setNumMapFaces(1, (int)(FaceNum + FaceOffset), TRUE);
 			TVFace *pTVFace = &NewMesh.mapFaces(1)[FaceOffset];
@@ -680,7 +680,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			NewMesh.setNumMapFaces(2, FaceOffset, TRUE);
 		}
 		else if (tex2Num > 0) {
-			//NewMesh.setMapSupport(2, TRUE);
+			NewMesh.setMapSupport(2, TRUE);
 			NewMesh.setNumMapVerts(2, (int)(VertNum + VertOffset), TRUE);
 			NewMesh.setNumMapFaces(2, (int)(FaceNum + FaceOffset), TRUE);
 			MeshMap *pMap = &NewMesh.Map(2);
