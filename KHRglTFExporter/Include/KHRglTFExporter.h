@@ -613,7 +613,7 @@ public:
 
 	IParamBlock2* GetCustAttrPBlock(ReferenceTarget* pRef, tstring& AttName);
 
-	void CreateDracoMeshProp(tinygltf::Primitive& primitive, Mesh* pMesh, MeshNormalSpec* pNrmSpec, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, vertPropFlag& flag, Mtl* pMtl, ISkinContextData* pSkinMC, Modifier* pMorphMod, const Matrix3 &OffsetTM);
+	bool CreateDracoMeshProp(tinygltf::Primitive& primitive, Mesh* pMesh, MeshNormalSpec* pNrmSpec, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, vertPropFlag& flag, Mtl* pMtl, ISkinContextData* pSkinMC, Modifier* pMorphMod, const Matrix3 &OffsetTM);
 	void CreateDracoMorphPrimitive(tinygltf::Primitive& primitive, Modifier* pMorphMod, std::vector<VertexProp>& VertPropTable);
 	//void SetDracoMorphTargetPositionTable(Modifier* pMod, int chID, const std::vector<int>& faceIDTable, draco::Mesh* pMesh, std::vector<int> dracovIDTable, std::vector<Point3>& targetPtTbl);
 	//void ExCreateDracoMeshProp(tinygltf::Primitive& primitive, Mesh* pMesh, MeshNormalSpec* pNrmSpec, std::vector<VertexProp>& vertPropTable, vertPropFlag &flag, Mtl* pMtl, ISkinContextData* pSkinMC, Modifier* pMorphMod, IGameMesh* pGameMesh, const Matrix3& OffsetTM);

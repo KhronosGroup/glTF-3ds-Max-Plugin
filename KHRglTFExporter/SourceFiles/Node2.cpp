@@ -351,11 +351,12 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 		int vertNum = VertPropTable.size();
 
 		//----------- Create Vertex table
+		bool dracoDone = false;
 		if (m_DracoCompress) {
-			CreateDracoMeshProp(primitive, pMesh, pNrmSpec, faceIDTable, VertPropTable, vertPropMap, propFlag, pMtl, pSkinMC, pMorphMod, OffsetTM);
+			dracoDone = CreateDracoMeshProp(primitive, pMesh, pNrmSpec, faceIDTable, VertPropTable, vertPropMap, propFlag, pMtl, pSkinMC, pMorphMod, OffsetTM);
 			//GetMeshInfoXX(pMesh);
 		}
-		else {
+		if (!dracoDone) {
 			//----------- Index
 			{
 				size_t dataSize = faceIDTable.size() * 3;

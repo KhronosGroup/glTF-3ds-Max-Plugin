@@ -717,7 +717,7 @@ int CreateWeightDracoBuffer(draco::Mesh &dracoMesh, Mesh *pMesh, std::map<int, s
 //
 //
 //========================================================================
-void glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh *pMesh, MeshNormalSpec *pNrmSpec, std::vector<int> &faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, vertPropFlag& flag, Mtl *pMtl, ISkinContextData *pSkinMC, Modifier *pMorphMod, const Matrix3 &OffsetTM)
+bool glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh *pMesh, MeshNormalSpec *pNrmSpec, std::vector<int> &faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, vertPropFlag& flag, Mtl *pMtl, ISkinContextData *pSkinMC, Modifier *pMorphMod, const Matrix3 &OffsetTM)
 {
 
 	DbgAssert(!faceIDTable.empty());
@@ -726,7 +726,9 @@ void glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 	/// TODO: needs to be validated: 
 	/// added empty checks to avoid null/dangling access later in processing
 	if(faceIDTable.empty() || VertPropTable.empty())
-		 return;
+		 return false;
+
+	const size_t accessorBase = m_model.accessors.size();	// used to undo the accessors added below if encoding fails
 
 	draco::Mesh dracoMesh;
 	tinygltf::Value::Object dracoAttr;
@@ -877,7 +879,7 @@ void glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 		acc.minValues.push_back(minUV.y);
 
 		m_model.accessors.push_back(acc);
-		primitive.attributes.insert(std::make_pair("TEXCOORD_0", m_model.accessors.size() - 1));
+		primitive.attributes.insert(std::make_pair("TEXCOORD_1", m_model.accessors.size() - 1));
 
 		int id = CreateUVDracoBuffer(dracoMesh, pMesh, faceIDTable, VertPropTable, vertPropMap, mapCh);
 		dracoAttr.insert(std::make_pair("TEXCOORD_1", id));
@@ -985,8 +987,28 @@ void glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 	// Encode the buffer
 	draco::Encoder encoder;
 	encoder.SetSpeedOptions(m_EncodeSpeed, 0);
+	encoder.SetTrackEncodedProperties(true);	// required, otherwise num_encoded_faces() / num_encoded_points() stay 0
 	//draco::EncoderBuffer buffer;
 	const draco::Status status = encoder.EncodeMeshToBuffer(dracoMesh, &s_buffer);
+
+	if (!status.ok()) {
+		// e.g. "All triangles are degenerate." (a material group containing only zero-area faces). Not fatal for the export:
+		// undo what was added so far and let the caller write this primitive uncompressed.
+		s_buffer.Clear();
+		m_model.accessors.erase(m_model.accessors.begin() + accessorBase, m_model.accessors.end());
+		primitive.attributes.clear();
+		primitive.indices = -1;
+		return false;
+	}
+
+	// Edgebreaker drops degenerate faces and the points only they used, so the accessors must describe what the blob really contains.
+	const size_t encodedFaces = encoder.num_encoded_faces();
+	const size_t encodedPoints = encoder.num_encoded_points();
+	if (encodedFaces > 0 && encodedPoints > 0) {
+		m_model.accessors[primitive.indices].count = encodedFaces * 3;
+		for (auto& kv : primitive.attributes)
+			m_model.accessors[kv.second].count = encodedPoints;
+	}
 
 	std::vector<unsigned char> buff;
 	buff.clear();
@@ -1026,6 +1048,7 @@ void glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 		s_pBaseMesh = nullptr;
 	}
 	s_buffer.Clear();
+	return true;
 }
 
 #if 0
