@@ -1015,8 +1015,8 @@ bool glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 	for (auto d : *s_buffer.buffer()) buff.push_back(d);
 
 	// Pad encoded buffer size to a multiple of 4
-	int padding = 4-(buff.size() % 4);
-	for(int i=0; i< padding; i++) buff.push_back('0');
+	int padding = (4 - buff.size() % 4) % 4;
+	for(int i=0; i< padding; i++) buff.push_back( 0);
 
 	// Copy to glTF buffer
 	int offset = m_BufferByteOffset;
@@ -1308,8 +1308,8 @@ void glTFExporter_Core::ExCreateDracoMeshProp(tinygltf::Primitive& primitive, Me
 	for (auto d : *s_buffer.buffer()) buff.push_back(d);
 
 	// Pad encoded buffer size to a multiple of 4
-	int padding = 4 - (buff.size() % 4);
-	for (int i = 0; i < padding; i++) buff.push_back('0');
+	int padding = (4 - buff.size() % 4) % 4;
+	for (int i = 0; i < padding; i++) buff.push_back(0);
 
 	// Copy to glTF buffer
 	int offset = m_BufferByteOffset;
