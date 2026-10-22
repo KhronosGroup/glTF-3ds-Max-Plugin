@@ -128,7 +128,7 @@ void LogOutput(const std::wstring& str, int pcs)
 
 	FILE* fp = nullptr;
 	errno_t err = _tfopen_s(&fp, LogFileName.c_str(), _T("a+"));
-	if (err) return;
+	if (err || fp == nullptr ) return;
 
 	_ftprintf(fp, _T("%s\n"), str.c_str());
 
@@ -311,7 +311,7 @@ public:
 	virtual Class_ID      ClassID() override                        { return KHRglTFExporter_CLASS_ID; }
 	virtual const TCHAR*  Category() override                       { return GetString(IDS_CATEGORY); }
 
-	virtual const TCHAR*  InternalName() override                   { return _T("KHRglTFImporter"); } // Returns fixed parsable name (scripter-visible name)
+	virtual const TCHAR*  InternalName() override                   { return GetString(IDS_CLASS_NAME); } // Returns fixed parsable name (scripter-visible name)
 	virtual HINSTANCE     HInstance() override                      { return hInstance; } // Returns owning module handle
 #if MAX_RELEASE>=24000
 	const wchar_t *ClassDesc::NonLocalizedClassName(void) { return GetString(IDS_CLASS_NAME); }
