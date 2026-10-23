@@ -347,6 +347,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		if(primCat == PrimCategory::Points) {
 			VertNum = flatCoordsBuf.size() / 3;
 			NewMesh.setNumVerts((int)(VertNum + VertOffset), TRUE);
+			NewMesh.setNumFaces(0);
 			UINT vIdx = VertOffset;
 			for (std::vector<float>::iterator v = flatCoordsBuf.begin(); v != flatCoordsBuf.end(); v += 3, vIdx++) {
 				Point3 p(*v, *(v + 1), *(v + 2));
