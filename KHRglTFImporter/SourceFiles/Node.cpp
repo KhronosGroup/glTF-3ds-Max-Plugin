@@ -718,10 +718,15 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		SetNormal(&NewMesh, VertNormalTable);
 	}
 
+	// Sanitize the constructed mesh structures
+	NewMesh.InvalidateGeomCache();
+	NewMesh.InvalidateTopologyCache();
+	NewMesh.buildBoundingBox();
+	NewMesh.BuildStripsAndEdges();
+
 	INode* pNode = NULL;
 	if(ObjectType == PrimCategory::Points) {
 		TriObject* pTri = CreateNewTriObject();
-		NewMesh.buildBoundingBox();
 		pTri->mesh = NewMesh;
 		pNode = GetCOREInterface()->CreateObjectNode(pTri);
 
