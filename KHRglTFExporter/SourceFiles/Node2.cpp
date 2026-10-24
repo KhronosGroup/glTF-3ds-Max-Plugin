@@ -144,6 +144,8 @@ void BuildVertexPropTable(Mesh *pMesh, std::vector<int> &faceIDTabl, MeshNormalS
 }
 
 //==========================================================
+// TODO: this needs refactor, leaving complexity and structural reasons aside
+// it also doesnt export vertices without faces ( eg. POINTS primitve )
 //==========================================================
 void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 {
@@ -173,21 +175,6 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 			}
 		}
 	}
-
-	IGameNode* pGameNode = NULL;
-	IGameObject* pGameObject = NULL;
-	IGameMesh* pGameMesh = NULL;
-	if (m_ExportTangent) {
-		propFlag.pGameMesh = NULL;
-		pGameNode = m_pIGameScene->GetIGameNode(pNode);
-		pGameObject = pGameNode->GetIGameObject();
-		if (pGameObject->GetIGameType() == IGameObject::IGAME_MESH) {
-			pGameMesh = (IGameMesh*)pGameObject;
-			pGameMesh->InitializeData();
-			Tab<int> mapTbl = pGameMesh->GetActiveMapChannelNum();
-		}
-	}
-	propFlag.pGameMesh = pGameMesh;
 
 	//------------------------------------------
 	//------------------------------------------
@@ -258,6 +245,27 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 	if (pMorphMod && m_ExportMorphNrm) {
 		CreateMorphVertMapTable(pMorphMod, pMesh, pNrmSpec, morphNormalMapList);
 	}
+
+	IGameNode* pGameNode = NULL;
+	IGameObject* pGameObject = NULL;
+	IGameMesh* pGameMesh = NULL;
+	
+	// Skip tangent export on POINTS only meshes. See ATTENTION comment below
+	if (m_ExportTangent&&  pMesh->getNumFaces() > 0) {
+		propFlag.pGameMesh = NULL;
+		pGameNode = m_pIGameScene->GetIGameNode(pNode);
+		pGameObject = pGameNode->GetIGameObject();
+
+		if ( pGameObject && pGameObject->GetIGameType() == IGameObject::IGAME_MESH ) {
+			pGameMesh =  static_cast<IGameMesh*>(pGameObject);
+
+			// ATTENTION: crashes if the mesh has no faces ( POINTS ) but there are enabled map channels on the mesh ( points only mesh )
+			pGameMesh->InitializeData();
+			// TODO: this is DEAD CODE -> mapTbl is discarded after the if block without ever being used
+			Tab<int> mapTbl = pGameMesh->GetActiveMapChannelNum();
+		}
+	}
+	propFlag.pGameMesh = pGameMesh;
 
 	int mapCh = 1;
 
