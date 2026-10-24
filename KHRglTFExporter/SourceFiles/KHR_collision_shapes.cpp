@@ -81,7 +81,7 @@ void glTFExporter_Core::CreateCollisionShape(INode *pNode, tinygltf::Node &node)
 		m_CollisionShapeTable.push_back(cs);
 		shapeIdx = (int)(m_CollisionShapeTable.size() - 1);
 	}
-	else if (cs.type == 3) {	//Capsel
+	else if (cs.type == 3) {	//Capsule
 		cs.param1 = pBlock0->GetFloat(31)/scl.x;
 		cs.param2 = pBlock0->GetFloat(34) / scl.x;
 		m_CollisionShapeTable.push_back(cs);

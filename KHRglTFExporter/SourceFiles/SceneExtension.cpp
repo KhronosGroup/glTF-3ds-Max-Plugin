@@ -115,9 +115,9 @@ void glTFExporter_Core::SetSceneExtensions(void)
 				o.insert(std::make_pair("box", tinygltf::Value(s)));
 				val.push_back(tinygltf::Value(o));
 			}
-			else if (cs.type == 3) {	//Capsel
+			else if (cs.type == 3) {	//Capsule
 				tinygltf::Value::Object o;
-				o.insert(std::make_pair("type", tinygltf::Value(std::string("capsel"))));
+				o.insert(std::make_pair("type", tinygltf::Value(std::string("capsule"))));
 
 				tinygltf::Value::Array size;
 				size.push_back(tinygltf::Value(cs.param1));
@@ -125,7 +125,7 @@ void glTFExporter_Core::SetSceneExtensions(void)
 				size.push_back(tinygltf::Value(cs.param3));
 				tinygltf::Value::Object s;
 				s.insert(std::make_pair("size", tinygltf::Value(size)));
-				o.insert(std::make_pair("capsel", tinygltf::Value(s)));
+				o.insert(std::make_pair("capsule", tinygltf::Value(s)));
 				val.push_back(tinygltf::Value(o));
 			}
 			/*
@@ -170,8 +170,6 @@ void glTFExporter_Core::SetSceneExtensions(void)
 	}
 
 }
-
-
 
 void glTFExporter_Core::SetSceneExtras(tinygltf::Scene &Scene)
 {
