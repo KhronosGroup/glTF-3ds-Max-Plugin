@@ -184,7 +184,6 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 		if (pGameObject->GetIGameType() == IGameObject::IGAME_MESH) {
 			pGameMesh = (IGameMesh*)pGameObject;
 			pGameMesh->InitializeData();
-			pGameMesh->InitializeBinormalData();
 			Tab<int> mapTbl = pGameMesh->GetActiveMapChannelNum();
 		}
 	}
