@@ -787,11 +787,12 @@ int KHRglTFExporter::DoExport(const TCHAR* filename, ExpInterface* exporterInt, 
 	LogInit(tstring(filename));
 	LogOutput(_T("DoExport Start."));
 
-	LogOutput(_T("DoExport End."));
 
 	exportSelected = (options & SCENE_EXPORT_SELECTED) ? TRUE : FALSE;
 
-	return theExporterCore.ExportPreProcess(filename, suppressPrompts, 1);
+	int result =theExporterCore.ExportPreProcess(filename, suppressPrompts, 1);
+	LogOutput(_T("DoExport End - Result: ") + std::to_wstring(result));
+	return result;
 }
 
 // -----------------------------------------------------------
@@ -1597,6 +1598,7 @@ std::wstring StringToWString(const char *oString)
 
 //================================================================
 // Truncate to the specified decimal places.
+// TODO: this should be inlined and put to the header
 //================================================================
 double truncateDecimal(float value) 
 {
