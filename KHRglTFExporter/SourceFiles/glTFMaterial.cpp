@@ -24,259 +24,188 @@
 //----------------------------------------------------------
 void glTFExporter_Core::glTFMaterial(MtlBase* pMtl, tinygltf::Material& material)
 {
-	BOOL animated = FALSE;
+	DbgAssert( pMtl && pMtl->ClassID() == glTFMaterialID);
+
+	// TODO: small Helper lambda, global refactor will place it into the header as inlined
+	auto IsAnimated = [](IParamBlock2* pb, ParamID id) {
+		Control* c = pb->GetControllerByIndex(id);
+		return c && c->IsAnimated();
+	};
+
 
 	IParamBlock2* pBlock0 = pMtl->GetParamBlockByID(0);
-	IParamBlock2* pBlock1 = pMtl->GetParamBlockByID(1);
-	Point4 c;
-	pBlock0->GetValue(glTF_baseColor, m_time, c, FOREVER);
-	Control* pC = pBlock0->GetControllerByID(glTF_baseColor);
-	if (pC && c == Point4(1.0f, 1.0f, 1.0f, 1.0f)) c.w-=0.00000001f;
+	
+	AColor baseCol = pBlock0->GetAColor(glTF_baseColor, m_time, FOREVER);
 
-	material.pbrMetallicRoughness.baseColorFactor[0] = c.x < 0.0 ? 0.0f : c.x;
-	material.pbrMetallicRoughness.baseColorFactor[1] = c.y < 0.0 ? 0.0f : c.y;
-	material.pbrMetallicRoughness.baseColorFactor[2] = c.z < 0.0 ? 0.0f : c.z;
-	material.pbrMetallicRoughness.baseColorFactor[3] = c.w < 0.0 ? 0.0f : c.w;
+	// TODO: document the intention of this magic, why is alpha slightly reduced when an animation controller is attached to the base color ?
+	if (baseCol == AColor(1.0f, 1.0f, 1.0f, 1.0f) && pBlock0->GetControllerByID(glTF_baseColor) ) 
+		baseCol.a -= 0.00000001f;
+	
+	// TODO: the current implementation ignores the active 3ds Max color management settings completely, 
+	// this should be solved in a unified manner for all exported colors using 3ds Maxs color management APIs
+	// Currently values are simply clamped and not converted to RGB correctly
 
-	Texmap* pTex = NULL;
-	pBlock0->GetValue(glTF_baseColorMap, m_time, pTex, FOREVER);
-	if (pTex) {
-		CreateBaseColorTexture(material, pTex);
+	baseCol.ClampMinMax();
+
+	material.doubleSided = pBlock0->GetInt(glTF_Doublesided, m_time, FOREVER);
+
+	material.pbrMetallicRoughness.baseColorFactor = { baseCol.r, baseCol.g, baseCol.b, baseCol.a };
+
+	material.pbrMetallicRoughness.roughnessFactor = truncateDecimal(pBlock0->GetFloat(glTF_roughness, m_time, FOREVER));
+	material.pbrMetallicRoughness.metallicFactor = truncateDecimal(pBlock0->GetFloat(glTF_metalness, m_time, FOREVER));
+	
+	material.pbrMetallicRoughness.baseColorTexture.index = -1;
+	if(Texmap* colTex = pBlock0->GetTexmap(glTF_baseColorMap, m_time, FOREVER)) {
+		CreateBaseColorTexture(material, colTex);
 	}
-	else {
-		material.pbrMetallicRoughness.baseColorTexture.index = -1;
-	}
-	//material.has_pbr_metallic_roughness = 1;
-	material.pbrMetallicRoughness.metallicFactor = 0.0f;
-	material.pbrMetallicRoughness.roughnessFactor = 0.0f;
-	//material->pbr_metallic_roughness.metallic_roughness_texture = 0;
-	float scale = 1.0f;
-	pBlock0->GetValue(glTF_normalMap, m_time, pTex, FOREVER);
-	pBlock0->GetValue(glTF_normal, m_time, scale, FOREVER);
-	if (pTex) {
-		if (pTex->ClassID() == OSLTex_CLASS_ID) {
-			IParamBlock2* pPBlock1 = pTex->GetParamBlock(1);
-			pPBlock1->GetValue(6, m_time, pTex, FOREVER);
+
+
+	float normalScale = pBlock0->GetFloat(glTF_normal, m_time, FOREVER);	
+	
+	material.normalTexture.index = -1;
+	if( Texmap* normTex = pBlock0->GetTexmap(glTF_normalMap, m_time, FOREVER)) {
+		if (normTex->ClassID() == OSLTex_CLASS_ID) {
+			IParamBlock2* pPBlock1 = normTex->GetParamBlock(1);
+			pPBlock1->GetValue(6, m_time, normTex, FOREVER);
 		}
-		CreateNormalTexture(material, pTex, scale);
-	}
-	else {
-		material.normalTexture.index = -1;
-	}
-	pBlock0->GetValue(glTF_emissionMap, m_time, pTex, FOREVER);
-	if (pTex) {
-		CreateEmitTexture(material, pTex);
-	}
-	else {
-		material.emissiveTexture.index = -1;
+		CreateNormalTexture(material, normTex, normalScale);
 	}
 
-	Point4 col;
-	pBlock0->GetValue(glTF_emissionColor, m_time, col, FOREVER);
-	if (col.x != 0.0f || col.y != 0.0f || col.z != 0.0f) {
-		material.emissiveFactor.push_back(col.x);
-		material.emissiveFactor.push_back(col.y);
-		material.emissiveFactor.push_back(col.z);
+	material.emissiveTexture.index = -1;
+	if( Texmap *emTex = pBlock0->GetTexmap(glTF_emissionMap, m_time, FOREVER)) {
+		CreateEmitTexture(material, emTex);
 	}
 
-	int alphaMode;
-	pBlock0->GetValue(glTF_alphaMode, m_time, alphaMode, FOREVER);
-	switch (alphaMode) {
-	case 1:material.alphaMode = "OPAQUE"; break;
-	case 2:material.alphaMode = "MASK"; break;
-	case 3:material.alphaMode = "BLEND"; break;
+	AColor emColor = pBlock0->GetAColor(glTF_emissionColor, m_time, FOREVER);
+	if (emColor.r != 0.0f || emColor.g != 0.0f || emColor.b != 0.0f) {
+		material.emissiveFactor.insert(material.emissiveFactor.end(), { emColor.r, emColor.g, emColor.b });
 	}
 
-	float alphaCutOff;
-	pBlock0->GetValue(glTF_alphaCutoff, m_time, alphaCutOff, FOREVER);
-	material.alphaCutoff = truncateDecimal(alphaCutOff);
-
-	pBlock1->GetValue(glTF_transmissionMap, m_time, pTex, FOREVER);
-	if (pTex) {
-		//CreateOpacityTexture(material, pTex);
-		material.alphaMode = "MASK";
-	}
-	else {
+	material.alphaCutoff = truncateDecimal(pBlock0->GetFloat(glTF_alphaCutoff, m_time, FOREVER));
+	switch (pBlock0->GetInt(glTF_alphaMode, m_time, FOREVER)) {
+		case 1: material.alphaMode = "OPAQUE"; break;
+		case 2: material.alphaMode = "MASK"; break;
+		case 3: material.alphaMode = "BLEND"; break;
 	}
 
-	{
-		float val;
-		pBlock0->GetValue(glTF_roughness, m_time, val, FOREVER);
-		material.pbrMetallicRoughness.roughnessFactor = truncateDecimal(val);
-		pBlock0->GetValue(glTF_metalness, m_time, val, FOREVER);
-		material.pbrMetallicRoughness.metallicFactor = truncateDecimal(val);
-	}
+	Texmap *roughTex = pBlock0->GetTexmap(glTF_roughnessMap, m_time, FOREVER);
+	Texmap *metalTex = pBlock0->GetTexmap(glTF_metalnessMap, m_time, FOREVER);
+	Texmap *aoTex = pBlock0->GetTexmap(glTF_ambientOcclusionMap, m_time, FOREVER);
 
-	float occStrength = pBlock0->GetFloat(glTF_ambientOcclusion);
-	Texmap *pTex1, *pTex2, *pTex3;
-	pBlock0->GetValue(glTF_roughnessMap, m_time, pTex1, FOREVER);
-	pBlock0->GetValue(glTF_metalnessMap, m_time, pTex2, FOREVER);
-	pBlock0->GetValue(glTF_ambientOcclusionMap, m_time, pTex3, FOREVER);
-	if (pTex1 || pTex2 || pTex3) {
+	if (roughTex || metalTex || aoTex) {
 		int mapCh1 = 0;
-		int mapCh2 = 1;
-		CreateMetalRoughTexture(material, pTex1, pTex2, &mapCh1, pTex3, &mapCh2);
-		if (pTex1 || pTex2)
+		int mapCh2 = 1; 
+		CreateMetalRoughTexture(material, roughTex, metalTex, &mapCh1, aoTex, &mapCh2);
+		if (roughTex || metalTex)
 			material.pbrMetallicRoughness.baseColorTexture.texCoord = mapCh1;
-		if (pTex3) {
+		if (aoTex) {
 			material.occlusionTexture.texCoord = mapCh2;
-			CreateOcclusionTexture(material, pTex3, occStrength);
+			CreateOcclusionTexture(material, aoTex, pBlock0->GetFloat(glTF_ambientOcclusion));
 		}
 	}
-	else {
-	}
-	/*
-	if (pTex3) {
-		//CreateOcclusionTexture(material, pTex);
-	}
-	else {
-		material.occlusionTexture.index = -1;
-	}
-	*/
-	int enable;
-	pBlock1->GetValue(glTF_enableTransmission, m_time, enable, FOREVER);
-	if (enable) {
-		TransmissionStruct str;
-		pBlock1->GetValue(glTF_transmissionMap, m_time, pTex, FOREVER);
-		str.pTex = pTex;
-		pBlock1->GetValue(glTF_transmission, m_time, str.factor, FOREVER);
-		Control* pC = NULL;
-		BOOL animated = FALSE;
-		pC = pBlock1->GetControllerByIndex(glTF_transmission);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		CreateTransmissionTexture(material, str, animated);
+
+	if( IParamBlock2* pBlock1 = pMtl->GetParamBlockByID(1) )
+	{
+		if( pBlock1->GetInt(glTF_enableTransmission, m_time, FOREVER)) {
+			TransmissionStruct transmission = {
+				pBlock1->GetTexmap(glTF_transmissionMap, m_time, FOREVER),
+				pBlock1->GetFloat(glTF_transmission, m_time, FOREVER)
+			};
+	
+			CreateTransmissionTexture(material, transmission, IsAnimated(pBlock1, glTF_transmission));
+		}
+
+		if (pBlock1->GetInt(glTF_enableSpecular, m_time, FOREVER)) {
+			SpecularStruct specular = {
+				pBlock1->GetFloat(glTF_specular, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_specularMap, m_time,  FOREVER),
+				pBlock1->GetColor(glTF_specularcolor, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_specularColorMap, m_time, FOREVER)
+			};
+			CreateSpecularTexture(material, specular, IsAnimated(pBlock1,glTF_specular) || IsAnimated(pBlock1,glTF_specularcolor) );
+		}
+
+		if( pBlock1->GetInt(glTF_enableClearcoat, m_time, FOREVER)) {
+			ClearCoatStruct clearCoat = {
+				pBlock1->GetFloat(glTF_clearcoat, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_clearcoatMap, m_time, FOREVER),
+				pBlock1->GetFloat(glTF_clearcoatRoughness, m_time,  FOREVER),
+				pBlock1->GetTexmap(glTF_clearcoatRoughnessMap, m_time,  FOREVER),
+				pBlock1->GetFloat(glTF_clearcoatNormal, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_clearcoatNormalMap, m_time, FOREVER)
+			};
+			CreateClearCoatTexture(material, clearCoat, IsAnimated(pBlock1,glTF_clearcoat) || IsAnimated(pBlock1,glTF_clearcoatRoughness) );
+		}
+
+		if( pBlock1->GetInt(glTF_enableSheen, m_time, FOREVER)) {
+			SheenStruct sheen = {
+				pBlock1->GetColor(glTF_sheenColor, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_sheenColorMap, m_time, FOREVER),
+				pBlock1->GetFloat(glTF_sheenRoughness, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_sheenRoughnessMap, m_time,  FOREVER)
+			};
+			CreateSheenTexture(material, sheen, IsAnimated(pBlock1,glTF_sheenColor) || IsAnimated(pBlock1,glTF_sheenRoughness) );
+		}
+
+		if (pBlock1->GetInt(glTF_enableVolume, m_time, FOREVER)) {
+			VolumeStruct volume = {
+				pBlock1->GetFloat(glTF_volumeThickness, m_time, FOREVER),
+				pBlock1->GetTexmap(glTF_volumeThicknessMap, m_time, FOREVER),
+				pBlock1->GetFloat(glTF_volumeDistance, m_time, FOREVER),
+				pBlock1->GetColor(glTF_volumeColor, m_time, FOREVER)
+			};
+			CreateVolumeTexture(material, volume, IsAnimated(pBlock1,glTF_volumeThickness) || IsAnimated(pBlock1, glTF_volumeDistance) || IsAnimated(pBlock1, glTF_volumeColor));
+		}
+
+		if( pBlock1->GetInt(glTF_enableIndexOfRefraction, m_time, FOREVER)) {
+			IORStruct ior = { pBlock1->GetFloat(glTF_indexOfRefraction, m_time,FOREVER) };
+			CreateIORTexture(material, ior, IsAnimated(pBlock1, glTF_indexOfRefraction) );
+		}
+
+		if( pBlock1->GetInt(glTF_unlit, m_time, FOREVER)) {
+			UnlitStruct unlit = { TRUE };
+			CreateUnlitTexture(material, unlit, FALSE);
+		}
 	}
 
-	pBlock1->GetValue(glTF_enableSpecular, m_time, enable, FOREVER);
-	if (enable) {
-		SpecularStruct str;
-		pBlock1->GetValue(glTF_specularMap, m_time, str.pMap, FOREVER);
-		pBlock1->GetValue(glTF_specularColorMap, m_time, str.pColMap, FOREVER);
-		pBlock1->GetValue(glTF_specular, m_time, str.factor, FOREVER);
-		pBlock1->GetValue(glTF_specularcolor, m_time, str.color, FOREVER);
-		Control* pC = NULL;
-		BOOL animated = FALSE;
-		pC = pBlock1->GetControllerByIndex(glTF_specular);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		pC = pBlock1->GetControllerByIndex(glTF_specularcolor);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		CreateSpecularTexture(material, str, animated);
-	}
-
-	pBlock1->GetValue(glTF_enableClearcoat, m_time, enable, FOREVER);
-	if (enable) {
-		ClearCoatStruct str;
-		pBlock1->GetValue(glTF_clearcoatMap, m_time, str.pMap, FOREVER);
-		pBlock1->GetValue(glTF_clearcoatRoughnessMap, m_time, str.pRoughnessMap, FOREVER);
-		pBlock1->GetValue(glTF_clearcoatNormalMap, m_time, str.pNormalMap, FOREVER);
-		pBlock1->GetValue(glTF_clearcoat, m_time, str.factor, FOREVER);
-		pBlock1->GetValue(glTF_clearcoatRoughness, m_time, str.roughness, FOREVER);
-		pBlock1->GetValue(glTF_clearcoatNormal, m_time, str.normalValue, FOREVER);
-		Control* pC = NULL;
-		BOOL animated = FALSE;
-		pC = pBlock1->GetControllerByIndex(glTF_clearcoat);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		pC = pBlock1->GetControllerByIndex(glTF_clearcoatRoughness);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		CreateClearCoatTexture(material, str, animated);
-	}
-
-	pBlock1->GetValue(glTF_enableSheen, m_time, enable, FOREVER);
-	if (enable) {
-		SheenStruct str;
-		pBlock1->GetValue(glTF_sheenColorMap, m_time, str.pColMap, FOREVER);
-		pBlock1->GetValue(glTF_sheenRoughnessMap, m_time, str.pRoughnessMap, FOREVER);
-		pBlock1->GetValue(glTF_sheenColor, m_time, str.color, FOREVER);
-		pBlock1->GetValue(glTF_sheenRoughness, m_time, str.roughness, FOREVER);
-		Control* pC = NULL;
-		BOOL animated = FALSE;
-		pC = pBlock1->GetControllerByIndex(glTF_sheenColor);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		pC = pBlock1->GetControllerByIndex(glTF_sheenRoughness);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		CreateSheenTexture(material, str, animated);
-	}
-
-	pBlock1->GetValue(glTF_enableVolume, m_time, enable, FOREVER);
-	if (enable) {
-		VolumeStruct str;
-		pBlock1->GetValue(glTF_volumeThicknessMap, m_time, str.pThicknessMap, FOREVER);
-		pBlock1->GetValue(glTF_volumeThickness, m_time, str.thickness, FOREVER);
-		pBlock1->GetValue(glTF_volumeDistance, m_time, str.distance, FOREVER);
-		pBlock1->GetValue(glTF_volumeColor, m_time, str.color, FOREVER);
-		Control* pC = NULL;
-		BOOL animated = FALSE;
-		pC = pBlock1->GetControllerByIndex(glTF_volumeThickness);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		pC = pBlock1->GetControllerByIndex(glTF_volumeDistance);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		pC = pBlock1->GetControllerByIndex(glTF_volumeColor);
-		if (pC) if (pC->IsAnimated()) animated = TRUE;
-		CreateVolumeTexture(material, str, animated);
-	}
-
-	pBlock1->GetValue(glTF_enableIndexOfRefraction, m_time, enable, FOREVER);
-	if (enable) {
-		IORStruct str;
-		pBlock1->GetValue(glTF_indexOfRefraction, m_time, str.ior, FOREVER);
-		BOOL animated = FALSE;
-		Control* pC = pBlock1->GetControllerByID(glTF_indexOfRefraction);
-		if (pC) animated = pC->IsAnimated();
-		CreateIORTexture(material, str, animated);
-	}
-
-	pBlock1->GetValue(glTF_unlit, m_time, enable, FOREVER);
-	if (enable) {
-		UnlitStruct str;
-		CreateUnlitTexture(material, str, FALSE);
-	}
-
-	pBlock1->GetValue(glTF_enableIndexOfRefraction, m_time, enable, FOREVER);
-	if (enable) {
-		IORStruct str;
-		pBlock1->GetValue(glTF_indexOfRefraction, m_time, str.ior, FOREVER);
-		BOOL animated = FALSE;
-		Control* pC = pBlock0->GetControllerByID(glTF_indexOfRefraction);
-		if (pC) animated = pC->IsAnimated(); else animated = FALSE;
-		CreateIORTexture(material, str, animated);
-	}
-
-	int doubleSide;
-	pBlock0->GetValue(glTF_Doublesided, m_time, doubleSide, FOREVER);
-	material.doubleSided = doubleSide;
-
+	// TODO: this pattern below has to be refactored/improved
 	{
 		IridescenceStruct str;
-		if (SetIridescenceParams(pMtl, str, animated)) {
-			CreateIridescenceTexture(material, str, animated);
+		BOOL isAnimated = false;
+		if (SetIridescenceParams(pMtl, str, isAnimated)) {
+			CreateIridescenceTexture(material, str, isAnimated);
 		}
 	}
 
 	{
 		EmissiveStrengthStruct str;
-		if (SetEmissiveStrengthParams(pMtl, str, animated)) {
-			CreateEmissiveStrengthTexture(material, str, animated);
+		BOOL isAnimated = false;
+		if (SetEmissiveStrengthParams(pMtl, str, isAnimated)) {
+			CreateEmissiveStrengthTexture(material, str, isAnimated);
 		}
 	}
 
 	{
 		DispersionStruct str;
-		if (SetDispersionParams(pMtl, str, animated)) {
-			CreateDispersionTexture(material, str, animated);
+		BOOL isAnimated = false;
+		if (SetDispersionParams(pMtl, str, isAnimated)) {
+			CreateDispersionTexture(material, str, isAnimated);
 		}
 	}
 
 	{
 		AnisotropyStruct str;
-		if (SetAnisotropyParams(pMtl, str, animated)) {
-			CreateAnisotropyTexture(material, str, animated);
+		BOOL isAnimated = false;
+		if (SetAnisotropyParams(pMtl, str, isAnimated)) {
+			CreateAnisotropyTexture(material, str, isAnimated);
 		}
 	}
 
 	{
 		DiffuseTransmissionStruct str;
-		if (SetDiffuseTransmissionParams(pMtl, str, animated)) {
-			CreateDiffuseTransmissionTexture(material, str, animated);
+		BOOL isAnimated = false;
+		if (SetDiffuseTransmissionParams(pMtl, str, isAnimated)) {
+			CreateDiffuseTransmissionTexture(material, str, isAnimated);
 		}
 	}
 }
