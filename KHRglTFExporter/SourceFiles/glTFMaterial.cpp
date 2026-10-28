@@ -20,27 +20,45 @@
 
 #include "KHRglTFExporter.h"
 
+// TODO: move the Materials.cpp
+static Texmap* UnwrapOSLMap(Texmap* pTex, TimeValue t)
+{
+	if(!pTex || pTex->ClassID() != OSLTex_CLASS_ID)
+		return pTex;
+
+	IParamBlock2* pb = pTex->GetParamBlock(1);
+	Texmap* subMap = pb ? pb->GetTexmap(6, t, FOREVER) : nullptr;
+	return subMap ? subMap : pTex;     // fall back to the OSL node itself
+}
+
+
 //----------------------------------------------------------
 //----------------------------------------------------------
 void glTFExporter_Core::glTFMaterial(MtlBase* pMtl, tinygltf::Material& material)
 {
-	DbgAssert( pMtl && pMtl->ClassID() == glTFMaterialID);
+	DbgAssert(pMtl && pMtl->ClassID() == glTFMaterialID);
 
 	// TODO: small Helper lambda, global refactor will place it into the header as inlined
-	auto IsAnimated = [](IParamBlock2* pb, ParamID id) {
-		Control* c = pb->GetControllerByIndex(id);
+	auto IsAnimated = [](IParamBlock2* pb, ParamID id, int tabIndex = 0) {
+		if(!pb || pb->IDtoIndex(id) < 0)
+			return false;
+		Control* c = pb->GetControllerByID(id, tabIndex);
 		return c && c->IsAnimated();
 	};
 
-
 	IParamBlock2* pBlock0 = pMtl->GetParamBlockByID(0);
-	
+	DbgAssert(pBlock0);
+	if(!pBlock0) {
+		LogOutput(std::wstring( L"Material '") + pMtl->GetName().data() + L"': missing param block 0, skipped");
+		return;    // leave 'material' at its defaults
+	}
+
 	AColor baseCol = pBlock0->GetAColor(glTF_baseColor, m_time, FOREVER);
 
 	// TODO: document the intention of this magic, why is alpha slightly reduced when an animation controller is attached to the base color ?
-	if (baseCol == AColor(1.0f, 1.0f, 1.0f, 1.0f) && pBlock0->GetControllerByID(glTF_baseColor) ) 
+	if(baseCol == AColor(1.0f, 1.0f, 1.0f, 1.0f) && pBlock0->GetControllerByID(glTF_baseColor))
 		baseCol.a -= 0.00000001f;
-	
+
 	// TODO: the current implementation ignores the active 3ds Max color management settings completely, 
 	// this should be solved in a unified manner for all exported colors using 3ds Maxs color management APIs
 	// Currently values are simply clamped and not converted to RGB correctly
@@ -53,54 +71,51 @@ void glTFExporter_Core::glTFMaterial(MtlBase* pMtl, tinygltf::Material& material
 
 	material.pbrMetallicRoughness.roughnessFactor = truncateDecimal(pBlock0->GetFloat(glTF_roughness, m_time, FOREVER));
 	material.pbrMetallicRoughness.metallicFactor = truncateDecimal(pBlock0->GetFloat(glTF_metalness, m_time, FOREVER));
-	
+
 	material.pbrMetallicRoughness.baseColorTexture.index = -1;
 	if(Texmap* colTex = pBlock0->GetTexmap(glTF_baseColorMap, m_time, FOREVER)) {
 		CreateBaseColorTexture(material, colTex);
 	}
 
+	float normalScale = pBlock0->GetFloat(glTF_normal, m_time, FOREVER);
 
-	float normalScale = pBlock0->GetFloat(glTF_normal, m_time, FOREVER);	
-	
 	material.normalTexture.index = -1;
-	if( Texmap* normTex = pBlock0->GetTexmap(glTF_normalMap, m_time, FOREVER)) {
-		if (normTex->ClassID() == OSLTex_CLASS_ID) {
-			IParamBlock2* pPBlock1 = normTex->GetParamBlock(1);
-			pPBlock1->GetValue(6, m_time, normTex, FOREVER);
-		}
-		CreateNormalTexture(material, normTex, normalScale);
+	if(Texmap* normTex = pBlock0->GetTexmap(glTF_normalMap, m_time, FOREVER)) {
+		CreateNormalTexture(material, UnwrapOSLMap(normTex, m_time), normalScale);
 	}
 
 	material.emissiveTexture.index = -1;
-	if( Texmap *emTex = pBlock0->GetTexmap(glTF_emissionMap, m_time, FOREVER)) {
+	if(Texmap* emTex = pBlock0->GetTexmap(glTF_emissionMap, m_time, FOREVER)) {
 		CreateEmitTexture(material, emTex);
 	}
 
 	AColor emColor = pBlock0->GetAColor(glTF_emissionColor, m_time, FOREVER);
-	if (emColor.r != 0.0f || emColor.g != 0.0f || emColor.b != 0.0f) {
-		material.emissiveFactor.insert(material.emissiveFactor.end(), { emColor.r, emColor.g, emColor.b });
+	if(emColor.r != 0.0f || emColor.g != 0.0f || emColor.b != 0.0f) {
+		emColor.ClampMinMax();
+		material.emissiveFactor = { emColor.r, emColor.g, emColor.b };
 	}
 
 	material.alphaCutoff = truncateDecimal(pBlock0->GetFloat(glTF_alphaCutoff, m_time, FOREVER));
-	switch (pBlock0->GetInt(glTF_alphaMode, m_time, FOREVER)) {
+	switch(pBlock0->GetInt(glTF_alphaMode, m_time, FOREVER)) {
 		case 1: material.alphaMode = "OPAQUE"; break;
 		case 2: material.alphaMode = "MASK"; break;
 		case 3: material.alphaMode = "BLEND"; break;
+		default: material.alphaMode = "OPAQUE"; break;
 	}
 
-	Texmap *roughTex = pBlock0->GetTexmap(glTF_roughnessMap, m_time, FOREVER);
-	Texmap *metalTex = pBlock0->GetTexmap(glTF_metalnessMap, m_time, FOREVER);
-	Texmap *aoTex = pBlock0->GetTexmap(glTF_ambientOcclusionMap, m_time, FOREVER);
+	Texmap* roughTex = pBlock0->GetTexmap(glTF_roughnessMap, m_time, FOREVER);
+	Texmap* metalTex = pBlock0->GetTexmap(glTF_metalnessMap, m_time, FOREVER);
+	Texmap* aoTex = pBlock0->GetTexmap(glTF_ambientOcclusionMap, m_time, FOREVER);
 
-	if (roughTex || metalTex || aoTex) {
+	if(roughTex || metalTex || aoTex) {
 		int mapCh1 = 0;
-		int mapCh2 = 1; 
+		int mapCh2 = 1;
 		CreateMetalRoughTexture(material, roughTex, metalTex, &mapCh1, aoTex, &mapCh2);
-		if (roughTex || metalTex)
+		if(roughTex || metalTex)
 			material.pbrMetallicRoughness.baseColorTexture.texCoord = mapCh1;
-		if (aoTex) {
+		if(aoTex) {
 			material.occlusionTexture.texCoord = mapCh2;
-			CreateOcclusionTexture(material, aoTex, pBlock0->GetFloat(glTF_ambientOcclusion));
+			CreateOcclusionTexture(material, aoTex, pBlock0->GetFloat(glTF_ambientOcclusion, m_time, FOREVER));
 		}
 	}
 
