@@ -20,7 +20,7 @@
 
 #include "KHRglTFExporter.h"
 
-// TODO: move the Materials.cpp
+// TODO: move to Materials.cpp
 static Texmap* UnwrapOSLMap(Texmap* pTex, TimeValue t)
 {
 	if(!pTex || pTex->ClassID() != OSLTex_CLASS_ID)
@@ -122,63 +122,59 @@ void glTFExporter_Core::glTFMaterial(MtlBase* pMtl, tinygltf::Material& material
 	if( IParamBlock2* pBlock1 = pMtl->GetParamBlockByID(1) )
 	{
 		if( pBlock1->GetInt(glTF_enableTransmission, m_time, FOREVER)) {
-			TransmissionStruct transmission = {
-				pBlock1->GetTexmap(glTF_transmissionMap, m_time, FOREVER),
-				pBlock1->GetFloat(glTF_transmission, m_time, FOREVER)
-			};
-	
+			TransmissionStruct transmission;
+			transmission.pTex = pBlock1->GetTexmap(glTF_transmissionMap, m_time, FOREVER);
+			transmission.factor = pBlock1->GetFloat(glTF_transmission, m_time, FOREVER);	
 			CreateTransmissionTexture(material, transmission, IsAnimated(pBlock1, glTF_transmission));
 		}
 
 		if (pBlock1->GetInt(glTF_enableSpecular, m_time, FOREVER)) {
-			SpecularStruct specular = {
-				pBlock1->GetFloat(glTF_specular, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_specularMap, m_time,  FOREVER),
-				pBlock1->GetColor(glTF_specularcolor, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_specularColorMap, m_time, FOREVER)
-			};
+			SpecularStruct specular;
+			specular.factor = pBlock1->GetFloat(glTF_specular, m_time, FOREVER);
+			specular.pMap = pBlock1->GetTexmap(glTF_specularMap, m_time, FOREVER);
+			specular.color = pBlock1->GetColor(glTF_specularcolor, m_time, FOREVER);
+			specular.pColMap = pBlock1->GetTexmap(glTF_specularColorMap, m_time, FOREVER);			
 			CreateSpecularTexture(material, specular, IsAnimated(pBlock1,glTF_specular) || IsAnimated(pBlock1,glTF_specularcolor) );
 		}
 
 		if( pBlock1->GetInt(glTF_enableClearcoat, m_time, FOREVER)) {
-			ClearCoatStruct clearCoat = {
-				pBlock1->GetFloat(glTF_clearcoat, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_clearcoatMap, m_time, FOREVER),
-				pBlock1->GetFloat(glTF_clearcoatRoughness, m_time,  FOREVER),
-				pBlock1->GetTexmap(glTF_clearcoatRoughnessMap, m_time,  FOREVER),
-				pBlock1->GetFloat(glTF_clearcoatNormal, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_clearcoatNormalMap, m_time, FOREVER)
-			};
+			ClearCoatStruct clearCoat;
+			clearCoat.factor = pBlock1->GetFloat(glTF_clearcoat, m_time, FOREVER);
+			clearCoat.pMap = pBlock1->GetTexmap(glTF_clearcoatMap, m_time, FOREVER);
+			clearCoat.roughness = pBlock1->GetFloat(glTF_clearcoatRoughness, m_time, FOREVER);
+			clearCoat.pRoughnessMap = pBlock1->GetTexmap(glTF_clearcoatRoughnessMap, m_time, FOREVER);
+			clearCoat.normalValue = pBlock1->GetFloat(glTF_clearcoatNormal, m_time, FOREVER);
+			clearCoat.pNormalMap = pBlock1->GetTexmap(glTF_clearcoatNormalMap, m_time, FOREVER);			
 			CreateClearCoatTexture(material, clearCoat, IsAnimated(pBlock1,glTF_clearcoat) || IsAnimated(pBlock1,glTF_clearcoatRoughness) );
 		}
 
 		if( pBlock1->GetInt(glTF_enableSheen, m_time, FOREVER)) {
-			SheenStruct sheen = {
-				pBlock1->GetColor(glTF_sheenColor, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_sheenColorMap, m_time, FOREVER),
-				pBlock1->GetFloat(glTF_sheenRoughness, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_sheenRoughnessMap, m_time,  FOREVER)
-			};
+			SheenStruct sheen;
+			sheen.color = pBlock1->GetColor(glTF_sheenColor, m_time, FOREVER);
+			sheen.pColMap = pBlock1->GetTexmap(glTF_sheenColorMap, m_time, FOREVER);
+			sheen.roughness = pBlock1->GetFloat(glTF_sheenRoughness, m_time, FOREVER);
+			sheen.pRoughnessMap = pBlock1->GetTexmap(glTF_sheenRoughnessMap, m_time, FOREVER);
 			CreateSheenTexture(material, sheen, IsAnimated(pBlock1,glTF_sheenColor) || IsAnimated(pBlock1,glTF_sheenRoughness) );
 		}
 
 		if (pBlock1->GetInt(glTF_enableVolume, m_time, FOREVER)) {
-			VolumeStruct volume = {
-				pBlock1->GetFloat(glTF_volumeThickness, m_time, FOREVER),
-				pBlock1->GetTexmap(glTF_volumeThicknessMap, m_time, FOREVER),
-				pBlock1->GetFloat(glTF_volumeDistance, m_time, FOREVER),
-				pBlock1->GetColor(glTF_volumeColor, m_time, FOREVER)
-			};
+			VolumeStruct volume;
+			volume.thickness = pBlock1->GetFloat(glTF_volumeThickness, m_time, FOREVER);
+			volume.pThicknessMap = pBlock1->GetTexmap(glTF_volumeThicknessMap, m_time, FOREVER);
+			volume.distance = pBlock1->GetFloat(glTF_volumeDistance, m_time, FOREVER);
+			volume.color = pBlock1->GetColor(glTF_volumeColor, m_time, FOREVER);
 			CreateVolumeTexture(material, volume, IsAnimated(pBlock1,glTF_volumeThickness) || IsAnimated(pBlock1, glTF_volumeDistance) || IsAnimated(pBlock1, glTF_volumeColor));
 		}
 
 		if( pBlock1->GetInt(glTF_enableIndexOfRefraction, m_time, FOREVER)) {
-			IORStruct ior = { pBlock1->GetFloat(glTF_indexOfRefraction, m_time,FOREVER) };
+			IORStruct ior;
+			ior.ior =  pBlock1->GetFloat(glTF_indexOfRefraction, m_time,FOREVER);
 			CreateIORTexture(material, ior, IsAnimated(pBlock1, glTF_indexOfRefraction) );
 		}
 
 		if( pBlock1->GetInt(glTF_unlit, m_time, FOREVER)) {
-			UnlitStruct unlit = { TRUE };
+			UnlitStruct unlit;
+			unlit.unlit=TRUE;
 			CreateUnlitTexture(material, unlit, FALSE);
 		}
 	}
