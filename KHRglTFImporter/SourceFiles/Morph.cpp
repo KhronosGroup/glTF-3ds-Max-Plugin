@@ -93,7 +93,7 @@ void glTFImporter_Core::SetMorphWeightAnimation(INode *pNode, std::map<TimeValue
 		}
 	}
 
-	for (auto key : WeightKeyList) {
+	for (auto& const key: WeightKeyList) {
 		TimeValue t = key.first;
 		int pIdx = 1;
 		for (auto f : key.second) {

@@ -150,7 +150,7 @@ void glTFImporter_Core::SetAnimationPointer(int animID)
 
 					Control* pPosC = (Control*)GetCOREInterface()->CreateInstance(CTRL_POSITION_CLASS_ID, Class_ID(0x118f7e02, 0xffee238a));
 					pNode->GetTMController()->SetPositionController(pPosC);
-					for (auto key : PosKeyList) {
+					for (auto& const key: PosKeyList) {
 						TimeValue t = key.first;
 						Point3 pos = key.second.pos * mtx;
 						pPosC->SetValue(t, &pos);
@@ -168,7 +168,7 @@ void glTFImporter_Core::SetAnimationPointer(int animID)
 
 					Control* pRotC = (Control*)GetCOREInterface()->CreateInstance(CTRL_ROTATION_CLASS_ID, Class_ID(EULER_CONTROL_CLASS_ID, 0x0));
 					pNode->GetTMController()->SetRotationController(pRotC);
-					for (auto key : RotKeyList) {
+					for (auto& const key : RotKeyList) {
 						TimeValue t = key.first;
 						Quat rot = key.second.rot * mtx;
 						pRotC->SetValue(t, &rot);
@@ -186,7 +186,7 @@ void glTFImporter_Core::SetAnimationPointer(int animID)
 
 					Control* pSclC = (Control*)GetCOREInterface()->CreateInstance(CTRL_SCALE_CLASS_ID, Class_ID(0x118f7c01, 0xfeee238b));
 					pNode->GetTMController()->SetScaleController(pSclC);
-					for (auto key : SclKeyList) {
+					for (auto& const key: SclKeyList) {
 						TimeValue t = key.first;
 						Point3 scl = key.second.pos * mtx;
 						pSclC->SetValue(t, &scl);
