@@ -31,6 +31,9 @@
 
 #define MR3_CLASS_ID		Class_ID(0x17bb6854, 0xa5cba2a3)
 
+
+constexpr float ImportWeightScaleFactor = 100;
+
 void CreateMorphVertMapTable(Modifier* pMorphMod, Mesh* pBaseMesh, MeshNormalSpec* pBaseNrmSpec, std::vector<std::vector<Point3> >& morphNormalMapList);
 
 
@@ -95,7 +98,7 @@ void glTFImporter_Core::SetMorphWeightAnimation(INode *pNode, std::map<TimeValue
 		int pIdx = 1;
 		for (auto f : key.second) {
 			IParamBlock *pblock = pblockList.at(pIdx);
-			pblock->SetValue(0, t, f*100.0f);
+			pblock->SetValue(0, t, f*ImportWeightScaleFactor);
 			pIdx++;
 		}
 		if (m_StartTime > t) m_StartTime = t;
@@ -219,7 +222,7 @@ void glTFImporter_Core::SetMorph(void)
 
 		size_t wc = node->mesh->weights_count;
 		for (int i = 0; i < wc; i++) {
-			float w = node->mesh->weights[i];
+			float w = node->mesh->weights[i] * ImportWeightScaleFactor;
 			TSTR ComStr;
 			ComStr.printf(_T("WM3_MC_SetValue $.Morpher %d %f"), i + 1, w);
 #if MAX_RELEASE >= 24000
