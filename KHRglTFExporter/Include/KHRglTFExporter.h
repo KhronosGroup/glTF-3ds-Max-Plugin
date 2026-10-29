@@ -46,6 +46,8 @@
 #include <commdlg.h>
 
 #include <vector>
+#include <cstdint>
+#include <stdexcept>
 #include <map>
 #include <array>
 #include <filesystem>
@@ -557,7 +559,7 @@ public:
 	Texmap* ReplaceAlphamap(Texmap* pTex, Texmap* pAlphaMap) {	return pAlphaMap;}
 
 	BOOL HasMorphModifier(INode* pNode);
-	Control* GetMorphCtroller(Modifier* pMod, int idx);
+	Control* GetMorphController(Modifier* pMod, int idx);
 	void CreateMorph(INode *pNode, Modifier *pMorphMod);
 	void CreateMorphTable(void);
 	void SetMorphTagetList(tinygltf::Mesh& mesh, Modifier* pMod);
@@ -613,14 +615,30 @@ public:
 
 	IParamBlock2* GetCustAttrPBlock(ReferenceTarget* pRef, tstring& AttName);
 
-	void CreateDracoMeshProp(tinygltf::Primitive& primitive, Mesh* pMesh, MeshNormalSpec* pNrmSpec, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, vertPropFlag& flag, Mtl* pMtl, ISkinContextData* pSkinMC, Modifier* pMorphMod, const Matrix3 &OffsetTM);
+	bool CreateDracoMeshProp(tinygltf::Primitive& primitive, Mesh* pMesh, MeshNormalSpec* pNrmSpec, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, vertPropFlag& flag, Mtl* pMtl, ISkinContextData* pSkinMC, Modifier* pMorphMod, const Matrix3 &OffsetTM);
 	void CreateDracoMorphPrimitive(tinygltf::Primitive& primitive, Modifier* pMorphMod, std::vector<VertexProp>& VertPropTable);
 	//void SetDracoMorphTargetPositionTable(Modifier* pMod, int chID, const std::vector<int>& faceIDTable, draco::Mesh* pMesh, std::vector<int> dracovIDTable, std::vector<Point3>& targetPtTbl);
 	//void ExCreateDracoMeshProp(tinygltf::Primitive& primitive, Mesh* pMesh, MeshNormalSpec* pNrmSpec, std::vector<VertexProp>& vertPropTable, vertPropFlag &flag, Mtl* pMtl, ISkinContextData* pSkinMC, Modifier* pMorphMod, IGameMesh* pGameMesh, const Matrix3& OffsetTM);
 
 	void SetSceneExtensions(void);
 
-	void *SecureMemory(int size);
+
+
+
+	// Appends `size` zero-filled bytes to the glTF binary buffer and returns a pointer to the start of the NEW chunk.
+	// The pointer is only valid until the next append. Throws std::length_error past 2 GB (m_BufferByteOffset is an int) or std::bad_alloc.
+	uint8_t* AppendBuffer(size_t size);
+	
+	// TODO: refactor this fragile legacy allocation construct away. 
+	// TODO: Currently, ~38 call sites each repeat "offset = m_BufferByteOffset; ptr = SecureMemory(n) + offset" and pad to 4 bytes by hand.
+	// TODO: Replace with one call returning {offset, ptr} with built-in alignment, e.g. AppendRegion(size, align=4), then migrate the callers.
+	void *SecureMemory(size_t size);
+	
+	// moved here to collect the buffer rel,ated declarations here  before refactoring them away
+	std::vector<uint8_t> m_BinBuffer;	// owns the glTF binary buffer 
+	int m_BufferByteOffset;			// mirror of m_BinBuffer.size(); only AppendBuffer / ExportScene / FreeSceneData may change it
+
+
 	void FreeSceneData(void);
 
 	void SetName(void *ptr, const tstring &str) {
@@ -744,10 +762,6 @@ public:
 	tinygltf::Model m_model;
 	tinygltf::Animation m_animation;
 	//tinygltf::Animation m_glTF_animation;
-
-	int m_BufferByteOffset;
-	void *m_glTf_Buffer;
-	int m_DracoBufferViewIndex;
 
 	std::map<void*, std::string> m_nameTable;
 	std::map<void*, std::string> m_mimeTable;

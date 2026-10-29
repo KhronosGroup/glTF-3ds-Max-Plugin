@@ -102,7 +102,7 @@ cgltf_accessor* findAttrAccessor(cgltf_primitive *pr, const char *str)
 
 //======================================================================
 //======================================================================
-float GetQuantScale(cgltf_accessor *acc)
+static float GetQuantScale(cgltf_accessor *acc)
 {
 	if (!acc) return 1.0f;
 	if (acc->normalized) {
@@ -133,7 +133,7 @@ enum class PrimCategory
 };
 
 
-PrimCategory GetPrimCategory(int primType)
+static PrimCategory GetPrimCategory(int primType)
 {
 	switch (primType)
 	{
@@ -153,6 +153,26 @@ PrimCategory GetPrimCategory(int primType)
 			return PrimCategory::Unknown;
 	}
 }
+
+static void ClearAllMapChannels(Mesh& mesh)
+{
+	// regular channels: 0 = vertex color, 1 = default UVs, 2..n = extra
+	for (int ch = 0; ch < mesh.getNumMaps(); ++ch) {
+		if (mesh.mapSupport(ch))
+			mesh.setMapSupport(ch, FALSE);   // frees tv and tf for that channel
+	}
+	// special channels (negative indices)
+	if (mesh.mapSupport(MAP_SHADING)) mesh.setMapSupport(MAP_SHADING, FALSE);
+	if (mesh.mapSupport(MAP_ALPHA))   mesh.setMapSupport(MAP_ALPHA,   FALSE);
+}
+
+static void PrintMeshStats(Mesh& mesh)
+{
+	mprintf(_T("verts=%d faces=%d maps=%d\n"), mesh.getNumVerts(), mesh.getNumFaces(), mesh.getNumMaps());
+	for(int i = 0; i < mesh.getNumMaps(); ++i)
+		mprintf(_T(" map %d: used=%d mapVerts=%d\n"), i, (int)mesh.mapSupport(i), mesh.getNumMapVerts(i));
+}
+
 // end of helpers
 
 // ======================================================================
@@ -347,6 +367,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		if(primCat == PrimCategory::Points) {
 			VertNum = flatCoordsBuf.size() / 3;
 			NewMesh.setNumVerts((int)(VertNum + VertOffset), TRUE);
+			NewMesh.setNumFaces(0);
 			UINT vIdx = VertOffset;
 			for (std::vector<float>::iterator v = flatCoordsBuf.begin(); v != flatCoordsBuf.end(); v += 3, vIdx++) {
 				Point3 p(*v, *(v + 1), *(v + 2));
@@ -631,7 +652,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			*/
 		}
 		else if (tex1Num > 0) {
-			//NewMesh.setMapSupport(1, TRUE);
+			NewMesh.setMapSupport(1, TRUE);
 			NewMesh.setNumMapVerts(1, (int)(VertNum + VertOffset), TRUE);
 			NewMesh.setNumMapFaces(1, (int)(FaceNum + FaceOffset), TRUE);
 			TVFace *pTVFace = &NewMesh.mapFaces(1)[FaceOffset];
@@ -680,7 +701,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			NewMesh.setNumMapFaces(2, FaceOffset, TRUE);
 		}
 		else if (tex2Num > 0) {
-			//NewMesh.setMapSupport(2, TRUE);
+			NewMesh.setMapSupport(2, TRUE);
 			NewMesh.setNumMapVerts(2, (int)(VertNum + VertOffset), TRUE);
 			NewMesh.setNumMapFaces(2, (int)(FaceNum + FaceOffset), TRUE);
 			MeshMap *pMap = &NewMesh.Map(2);
@@ -717,16 +738,28 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		SetNormal(&NewMesh, VertNormalTable);
 	}
 
-	INode* pNode = NULL;
-	if(ObjectType == PrimCategory::Points) {
-		TriObject* pTri = CreateNewTriObject();
-		NewMesh.buildBoundingBox();
-		pTri->mesh = NewMesh;
-		pNode = GetCOREInterface()->CreateObjectNode(pTri);
+	// Sanitize the constructed mesh structures
+	NewMesh.InvalidateGeomCache();
+	NewMesh.InvalidateTopologyCache();
+	NewMesh.buildBoundingBox();
+	NewMesh.BuildStripsAndEdges();
 
+	INode* pNode = NULL;
+
+	// Maybe 3ds Max will gain a dedicated points object in the future ?
+	if(ObjectType == PrimCategory::Points) {
+		// no faces means any existing mapping channels with data contain bogus/non-valid data 
+		// These might crash 3ds max later on (eg. IGame API), so in the future clear them 
+		// The code is currently disabled, as this has to be investigated more thoroughly and will be refactored away most likely
+		// if(NewMesh.getNumFaces() == 0 && NewMesh.getNumMaps() > 0) 
+		//	ClearAllMapChannels(NewMesh); 
+
+		TriObject* pTri = CreateNewTriObject();
+		pTri->mesh = NewMesh;
+
+		pNode = GetCOREInterface()->CreateObjectNode(pTri);
 		if (!pNode) return NULL;
 		
-		// Maybe 3ds Max will gain a dedicated points object in the future ?
 		pNode->VertTicks(TRUE); // enable VertexTicks, otherwise there would be no visual in the viewport
 	} 
 	else if (ObjectType == PrimCategory::Lines) {

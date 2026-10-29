@@ -33,7 +33,7 @@ void glTFExporter_Core::PBRSpecGlossMaterial(MtlBase *pMtl, tinygltf::Material &
 
 	Point4 c;
 	pBlock1->GetValue(pbr_sg_base_color, m_time, c, FOREVER);
-	if(c.x != 1.0 && c.y != 1.0 && c.z != 1.0 && c.w != 1.0){
+	if(c.x != 1.0 || c.y != 1.0 || c.z != 1.0 || c.w != 1.0){
 		tinygltf::Value::Array col;
 		col.push_back(tinygltf::Value(c.x));
 		col.push_back(tinygltf::Value(c.y));
@@ -42,7 +42,7 @@ void glTFExporter_Core::PBRSpecGlossMaterial(MtlBase *pMtl, tinygltf::Material &
 		obj.insert(std::make_pair("diffuseFactor", tinygltf::Value(col)));
 	}
 	pBlock1->GetValue(pbr_sg_specular, m_time, c, FOREVER);
-	if (c.x != 1.0 && c.y != 1.0 && c.z != 1.0) {
+	if (c.x || 1.0 && c.y || 1.0 && c.z || 1.0) {
 		 tinygltf::Value::Array col;
 		 col.push_back(tinygltf::Value(c.x));
 		 col.push_back(tinygltf::Value(c.y));

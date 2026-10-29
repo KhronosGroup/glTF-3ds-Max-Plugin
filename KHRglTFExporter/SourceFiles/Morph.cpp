@@ -6,6 +6,8 @@
 
 #pragma comment(lib, "Morpher.lib")
 
+constexpr float ExportWeightScaleFactor = 0.01f;
+
 //======================================================================
 // Find the top node in the table
 //======================================================================
@@ -25,7 +27,7 @@ BOOL glTFExporter_Core::HasMorphModifier(INode* pNode)
 
 //======================================================================
 //======================================================================
-Control* glTFExporter_Core::GetMorphCtroller(Modifier* pMod, int idx)
+Control* glTFExporter_Core::GetMorphController(Modifier* pMod, int idx)
 {
 	MaxMorphModifier maxMorphModifier(pMod);
 	Control *pCtrl = maxMorphModifier.GetMorphChannel(idx).GetMorphWeightController();
@@ -106,7 +108,7 @@ void glTFExporter_Core::SetMorphWeight(Modifier* pMod, std::vector<double>& weig
 	MaxMorphModifier maxMorphModifier(pMod);
 	for (int i = 0; i < maxMorphModifier.NumMorphChannels(); i++) {
 		MaxMorphChannel mc = maxMorphModifier.GetMorphChannel(i);
-		if (mc.HasData()) weights.push_back(mc.GetMorphWeight(m_time));
+		if (mc.HasData()) weights.push_back(mc.GetMorphWeight(m_time) * ExportWeightScaleFactor);
 	}
 }
 
