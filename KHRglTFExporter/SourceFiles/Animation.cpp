@@ -635,7 +635,7 @@ void glTFExporter_Core::CreateAnimationRec(INode *pNode)
 	if (morphCount > 0) {
 		std::vector<Control*> ctrlTable;
 		for (int i = 0; i < 100; i++) {
-			Control* pCtrl = GetMorphCtroller(pMorphMod, i);
+			Control* pCtrl = GetMorphController(pMorphMod, i);
 			if (pCtrl) ctrlTable.push_back(pCtrl);
 		}
 

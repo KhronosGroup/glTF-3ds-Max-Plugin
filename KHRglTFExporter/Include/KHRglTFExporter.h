@@ -559,7 +559,7 @@ public:
 	Texmap* ReplaceAlphamap(Texmap* pTex, Texmap* pAlphaMap) {	return pAlphaMap;}
 
 	BOOL HasMorphModifier(INode* pNode);
-	Control* GetMorphCtroller(Modifier* pMod, int idx);
+	Control* GetMorphController(Modifier* pMod, int idx);
 	void CreateMorph(INode *pNode, Modifier *pMorphMod);
 	void CreateMorphTable(void);
 	void SetMorphTagetList(tinygltf::Mesh& mesh, Modifier* pMod);

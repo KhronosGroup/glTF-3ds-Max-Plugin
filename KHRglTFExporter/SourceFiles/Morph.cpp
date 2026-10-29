@@ -25,7 +25,7 @@ BOOL glTFExporter_Core::HasMorphModifier(INode* pNode)
 
 //======================================================================
 //======================================================================
-Control* glTFExporter_Core::GetMorphCtroller(Modifier* pMod, int idx)
+Control* glTFExporter_Core::GetMorphController(Modifier* pMod, int idx)
 {
 	MaxMorphModifier maxMorphModifier(pMod);
 	Control *pCtrl = maxMorphModifier.GetMorphChannel(idx).GetMorphWeightController();

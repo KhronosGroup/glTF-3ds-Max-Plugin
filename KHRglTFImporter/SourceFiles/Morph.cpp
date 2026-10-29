@@ -36,7 +36,7 @@ void CreateMorphVertMapTable(Modifier* pMorphMod, Mesh* pBaseMesh, MeshNormalSpe
 
 //======================================================================
 //======================================================================
-cgltf_accessor* findTargetAttrAccesor(cgltf_morph_target *pr, const char *str)
+cgltf_accessor* FindTargetAttrAccessor(cgltf_morph_target *pr, const char *str)
 {
 	cgltf_attribute *attr = pr->attributes;
 	for (int i = 0; i < pr->attributes_count; i++, attr++) {
@@ -158,7 +158,7 @@ void glTFImporter_Core::SetMorph(void)
 					DracoDecodeProc(mc->buffer_view, pr, VertIdList, DracoDecodeType::POSITION);
 				}
 				else {
-					GetDataList(VertIdList, findTargetAttrAccesor(target, "POSITION"));
+					GetDataList(VertIdList, FindTargetAttrAccessor(target, "POSITION"));
 				}
 
 				size_t VertNum = VertIdList.size() / 3;
@@ -176,7 +176,7 @@ void glTFImporter_Core::SetMorph(void)
 					DracoDecodeProc(mc->buffer_view, pr, NormalList, DracoDecodeType::NORMAL);
 				}
 				else {
-					GetDataList(NormalList, findTargetAttrAccesor(target, "NORMAL"));
+					GetDataList(NormalList, FindTargetAttrAccessor(target, "NORMAL"));
 				}
 				size_t normalNum = NormalList.size() / 3;
 				if (normalNum > 0) {
