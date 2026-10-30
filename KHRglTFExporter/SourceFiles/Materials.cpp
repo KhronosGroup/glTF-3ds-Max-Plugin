@@ -95,7 +95,7 @@ int GetMapCh(Texmap* pTex)
 //======================================================================
 Texmap *GetBitmapTextureRec(Texmap* pTex)
 {
-	if (!pTex) return NULL;
+	if (!pTex) return nullptr;
 
 	if (pTex->ClassID() == bmptexClassID) return pTex;
 	if (pTex->ClassID() == VRayBitmapID) return pTex;
@@ -128,19 +128,20 @@ Texmap *GetBitmapTextureRec(Texmap* pTex)
 		return GetBitmapTextureRec(pTex->GetParamBlock(1)->GetTexmap(4));
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 //======================================================================
 //======================================================================
 BitmapTex* CreateBitmapTex(const tstring& texFilePath, Texmap* pTex, const IPoint2 &size)
 {
-	Texmap *pNewTex = NULL;
+	Texmap *pNewTex = nullptr;
+
 	if (pTex) {
 		if(pTex->GetTheUVGen()){
-			pNewTex = (Texmap*)pTex->Clone(DefaultRemapDir());
+			pNewTex = static_cast<Texmap*>(pTex->Clone(DefaultRemapDir()));
 			if (pNewTex->GetTheUVGen()->IsStdUVGen()) {
-				StdUVGen* pUVGen = (StdUVGen*)pNewTex->GetTheUVGen();
+				StdUVGen* pUVGen = static_cast<StdUVGen*>(pNewTex->GetTheUVGen());
 				pUVGen->SetUOffs(0.0f, 0);
 				pUVGen->SetVOffs(0.0f, 0);
 				pUVGen->SetUScl(1.0f, 0);
@@ -636,6 +637,9 @@ BOOL glTFExporter_Core::CreateTextureTransformBlock(tinygltf::ExtensionMap& exte
 	}
 
 #if 1
+	// TODO: translate japanese comments to plain english
+	// Note: non-english comments should be avoided
+	// 
 	// Quantization の影響を Texture Transform 側に合成する
 	// UV_final = (UV_quant * QuantScale + QuantOffset) * scale + offset
 	//          = UV_quant * (QuantScale * scale) + (QuantOffset * scale + offset)
@@ -1859,12 +1863,21 @@ void glTFExporter_Core::CreateMaterialMapRec(MtlBase* pOrgMtl, BOOL VariantPart)
 }
 
 //======================================================================
+// JW: Checked
+// TODO: check whether the function returning the count really makes sense
+// it doesnt report active submat slots, so caller have to check themself again anyways
 //======================================================================
-BOOL glTFExporter_Core::IsVariantMtl(MtlBase *pMtl, int &cnt)const
+BOOL glTFExporter_Core::IsVariantMtl(MtlBase *pMtl, int &outCount)const
 {
+	outCount = 0;
+
 	if (!pMtl) return FALSE;
-	Class_ID cc = pMtl->ClassID();
-	if (cc == Class_ID(0x6769144b, 0x02c1017d)) return FALSE;
+	
+	if ( pMtl->ClassID() == VRayBitmapID) return FALSE;
+
+	if(pMtl->SuperClassID() == MATERIAL_CLASS_ID) {
+		outCount = static_cast<Mtl*>(pMtl)->NumSubMtls();
+	}
 
 	if ((pMtl->ClassID() == glTFMtlSwitcherClassID) ||
 		(pMtl->ClassID() == PBRMtlSwitcherClassID) ||
@@ -1872,21 +1885,21 @@ BOOL glTFExporter_Core::IsVariantMtl(MtlBase *pMtl, int &cnt)const
 		(pMtl->ClassID() == StdMtlSwitcherClassID) ||
 		(pMtl->ClassID() == PysicMtlSwitcherClassID)) return TRUE;
 
-	cnt = ((Mtl*)pMtl)->NumSubMtls();
 	if (pMtl->ClassID() == MaterialSwitcherClassID) return TRUE;
 
 	if (pMtl->ClassID() == ArnoldSwitchShaderID) return TRUE;
 	if (pMtl->ClassID() == CoronaSelectMtlID) return TRUE;
 
+	outCount = 0;
 	return FALSE;
 }
 
 //======================================================================
+//JW: Checked
 //======================================================================
 void glTFExporter_Core::CreateWireColorMtlMap(INode* pNode)
 {
 	if (!pNode) return;
-//	if (pNode->SuperClassID() == BASENODE_CLASS_ID)
 			
 	if (IsGeometryObject(pNode) && !pNode->GetMtl()) {
 		DWORD c = pNode->GetWireColor();
@@ -1894,7 +1907,8 @@ void glTFExporter_Core::CreateWireColorMtlMap(INode* pNode)
 			StdMat2* pSmat = (StdMat2*)NewDefaultStdMat();
 			pSmat->SetDiffuse(Color(c), m_time);
 			TSTR name;
-			name.printf(_T("WireColorMtl%d"), c);
+			//TODO: c is of 0xBBGGRR layout, the name is not really meaningfull as decimal
+			name.printf(_T("WireColorMtl%d"), c); 
 			pSmat->SetName(name);
 			m_WireColorMtlMap[c] = pSmat;
 		}
@@ -1930,6 +1944,8 @@ BOOL GetCutOffValue(Texmap *pCutOffTex, Texmap* &pRetTex, float &val)
 }
 
 //======================================================================
+// JW: Checked
+// TODO: this function is not used anywhere and should be removed
 //======================================================================
 void GetUV(UVGen *pUVGen, float &px, float &py, float &sx, float &sy)
 {
@@ -1939,8 +1955,7 @@ void GetUV(UVGen *pUVGen, float &px, float &py, float &sx, float &sy)
 	sy = 0.0f;
 
 	if (!pUVGen) return;
-
-	IParamBlock *pBlock = (IParamBlock*)pUVGen->SubAnim(0);
+	IParamBlock *pBlock = static_cast<IParamBlock*>(pUVGen->SubAnim(0));
 	if (!pBlock) return;
 	pBlock->GetValue(0, 0, px, FOREVER);
 	pBlock->GetValue(1, 0, py, FOREVER);
@@ -1949,6 +1964,7 @@ void GetUV(UVGen *pUVGen, float &px, float &py, float &sx, float &sy)
 }
 
 //======================================================================
+// JW: Checked
 //======================================================================
 Mtl* GetSubMtlFromShellMtl(Mtl* pMtl)
 {
@@ -1959,7 +1975,7 @@ Mtl* GetSubMtlFromShellMtl(Mtl* pMtl)
 	if (!pblock) return NULL;
 
 	int vpOut = 0;
-	pblock->GetValue(0, 0, vpOut, FOREVER);     // 0 = Origina
+	pblock->GetValue(0, 0, vpOut, FOREVER);     // 0 = Original
 
 	return (vpOut == 0) ? pMtl->GetSubMtl(0) : pMtl->GetSubMtl(1);
 

@@ -2178,6 +2178,7 @@ Control* ConvertFloatToColorController(Control* pSrcC, UINT ch)
 }
 //======================================================================
 //======================================================================
+// TODO: move this into some utility namespace
 float GetSceneScale(void)
 {
 	float scale = 1.0f;

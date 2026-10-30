@@ -54,7 +54,7 @@ void glTFExporter_Core::CreateImageBuffer(void)
 		char *buf = (char*)malloc(size);
 		FILE* pFp = nullptr;
 		errno_t err = fopen_s(&pFp, fname.c_str(), "rb");
-		if (err) continue;
+		if (err ||!buf) continue;
 
 		fread(buf, sizeof(char), size, pFp);
 		fclose(pFp);
@@ -80,7 +80,7 @@ void glTFExporter_Core::CreateImageBuffer(void)
 //----------------------------------------------------------
 // Create Base64 string from image file
 //----------------------------------------------------------
-tstring GetURILFromFile(std::string &f)
+tstring GetURILFromFile(std::string& f)
 {
 	tstring fname(StringToWString(f.c_str()));
 
