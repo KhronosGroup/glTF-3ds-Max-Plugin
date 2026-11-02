@@ -501,59 +501,43 @@ int CreateTangentDracoBuffer(draco::Mesh& dracoMesh, IGameMesh* pGameMesh, Mtl *
 //========================================================================
 // Register vertex color attribute buffer
 //========================================================================
-int CreateColDracoBuffer(draco::Mesh &dracoMesh, Mesh *pMesh, std::vector<int> &faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap)
+int CreateColDracoBuffer(draco::Mesh& dracoMesh, Mesh* pMesh, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, bool hasAlpha)
 {
-	int numv = VertPropTable.size();// pMesh->numVerts;
-	int numf = faceIDTable.size();
+	const int numv = static_cast<int>(VertPropTable.size());
+	const int numf = static_cast<int>(faceIDTable.size());
+	const int numComps = hasAlpha ? 4 : 3;
 
 	draco::GeometryAttribute dracoColAttr;
-	dracoColAttr.Init(
-		draco::GeometryAttribute::COLOR, // attribute type (like POSITION or NORMAL)
-		nullptr,			// buffer
-		3,					// number of component
-		draco::DT_FLOAT32,	// data type
-		false,				// normalized
-		sizeof(float) * 3,	// byte stride
+	dracoColAttr.Init( 	
+		draco::GeometryAttribute::COLOR,	// attribute type
+		nullptr,				// buffer
+		static_cast<int8_t>(numComps),		// number of components (3 = RGB, 4 = RGBA)
+		draco::DT_FLOAT32,			// data type
+		false,					// normalized
+		sizeof(float) * numComps,		// byte stride
 		0);					// byte offset
 
 	const int colAttrId = dracoMesh.AddAttribute(dracoColAttr, false, numv);
 	dracoMesh.attribute(colAttrId)->SetExplicitMapping(numv);
 
+	const int numAlphaVerts = hasAlpha ? pMesh->getNumMapVerts(MAP_ALPHA) : 0;
+
 	uint32_t vIndex = 0;
-	//MeshMap *pMap = &pMesh->Map(0);
-	//UVVert *pSrcUV = pMap->tv;
 	for (const auto& vProp : VertPropTable) {
-		UVVert p = pMesh->mapVerts(0)[vProp.vc];
-		float v[3] = { p.x, p.y, p.z };
+		const UVVert p = pMesh->mapVerts(0)[vProp.vc];
+		float v[4] = { p.x, p.y, p.z, 1.0f };
+
+		if (hasAlpha) {
+			// NOTE: vProp.vc is the color-map index. If alpha topology can differ, use a dedicated vProp.va instead.
+			if (vProp.va >= 0 && vProp.va < numAlphaVerts)
+				v[3] = pMesh->mapVerts(MAP_ALPHA)[vProp.vc].x;
+		}
 		dracoMesh.attribute(colAttrId)->SetAttributeValue(draco::AttributeValueIndex(vIndex++), v);
 	}
 
-#if 0
-	vIndex = 0;
-	std::vector<int> indices;
-	for (auto fId : faceIDTable) {
-		for (int j = 0; j < 3; j++) {
-			indices.push_back(vIndex++);
-		}
-	}
-
-	for (uint32_t vIndex = 0; vIndex < indices.size(); ++vIndex) {
-		const draco::PointIndex pIndex(vIndex);
-		const draco::AttributeValueIndex avIndex(indices[vIndex]);
-		dracoMesh.attribute(colAttrId)->SetPointMapEntry(pIndex, avIndex);
-	}
-
-	for (draco::FaceIndex fIndex(0); fIndex < static_cast<uint32_t>(indices.size() / 3); ++fIndex) {
-		draco::Mesh::Face dracoFace;
-		for (uint32_t cIndex = 0; cIndex < 3; ++cIndex)
-			dracoFace[cIndex] = fIndex.value() * 3 + cIndex;
-		dracoMesh.SetFace(fIndex, dracoFace);
-	}
-#else
-	auto ptr = VertPropTable.begin();
-	for (uint32_t vIndex = 0; vIndex < VertPropTable.size(); ++vIndex) {
-		const draco::PointIndex pIndex(vIndex);
-		int idx = ptr->faceID * 10 + ptr->corner;
+	for (uint32_t i = 0; i < VertPropTable.size(); ++i) {
+		const draco::PointIndex pIndex(i);
+		const int idx = VertPropTable[i].faceID * 10 + VertPropTable[i].corner;
 		const draco::AttributeValueIndex avIndex(vertPropMap[idx]);
 		dracoMesh.attribute(colAttrId)->SetPointMapEntry(pIndex, avIndex);
 	}
@@ -565,8 +549,6 @@ int CreateColDracoBuffer(draco::Mesh &dracoMesh, Mesh *pMesh, std::vector<int> &
 			dracoFace[cIndex] = vertPropMap[(*fIDptr) * 10 + cIndex];
 		dracoMesh.SetFace(fIndex, dracoFace);
 	}
-#endif
-
 	return colAttrId;
 }
 
@@ -885,43 +867,20 @@ bool glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 		dracoAttr.insert(std::make_pair("TEXCOORD_1", id));
 	}
 
-	//----------- Vertex Color
 	if (flag.VColorUsed) {
-		tinygltf::Accessor acc;// = Create_glTFAccessor();
-		acc.componentType = TINYGLTF_COMPONENT_TYPE_FLOAT;
-		acc.type = TINYGLTF_TYPE_VEC3;
+		const bool hasAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE
+			&& pMesh->mapFaces(MAP_ALPHA) && pMesh->mapVerts(MAP_ALPHA);
+
+		tinygltf::Accessor acc;
+		acc.componentType = TINYGLTF_COMPONENT_TYPE_FLOAT;   // Draco decodes to float
+		acc.type  = hasAlpha ? TINYGLTF_TYPE_VEC4 : TINYGLTF_TYPE_VEC3;
 		acc.count = VertPropTable.size();
-
-		MeshMap* pMap = &pMesh->Map(0);
-		UVVert* pSrcUV = pMap->tv;
-		TVFace* pTVFace = pMesh->mapFaces(0);
-		Point3 minUV = pSrcUV[pTVFace[faceIDTable[0]].t[0]];
-		Point3 maxUV = minUV;
-
-		for (auto id : faceIDTable) {
-			DWORD* v = pTVFace[id].t;
-			for (int pp = 0; pp < 3; pp++) {
-				UVVert p = pSrcUV[v[pp]];
-				if (p.x > maxUV.x)	maxUV.x = p.x;
-				if (p.y > maxUV.y)	maxUV.y = p.y;
-				if (p.z > maxUV.z)	maxUV.z = p.z;
-				if (p.x < minUV.x)	minUV.x = p.x;
-				if (p.y < minUV.y)	minUV.y = p.y;
-				if (p.z < minUV.z)	minUV.z = p.z;
-			}
-		}
-
-		acc.maxValues.push_back(maxUV.x);
-		acc.maxValues.push_back(maxUV.y);
-		acc.maxValues.push_back(maxUV.z);
-		acc.minValues.push_back(minUV.x);
-		acc.minValues.push_back(minUV.y);
-		acc.minValues.push_back(minUV.z);
+		// no bufferView (data lives in the Draco stream), no min/max needed for COLOR_n
 
 		m_model.accessors.push_back(acc);
-		primitive.attributes.insert(std::make_pair("COLOR_0", m_model.accessors.size() - 1));
+		primitive.attributes.insert(std::make_pair("COLOR_0", static_cast<int>(m_model.accessors.size() - 1)));
 
-		int id = CreateColDracoBuffer(dracoMesh, pMesh, faceIDTable, VertPropTable, vertPropMap);
+		int id = CreateColDracoBuffer(dracoMesh, pMesh, faceIDTable, VertPropTable, vertPropMap, hasAlpha);
 		dracoAttr.insert(std::make_pair("COLOR_0", id));
 	}
 

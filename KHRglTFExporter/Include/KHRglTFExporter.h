@@ -398,7 +398,8 @@ struct VertexProp {
 	Point3 normal;
 	int uv1 = 0;
 	int uv2 = 0;
-	int vc = 0;
+	int vc = 0;  // Vertex Color
+	int va = 0;  // Vertex Alpha
 };
 
 //==========================================================
