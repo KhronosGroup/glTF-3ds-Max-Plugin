@@ -501,11 +501,14 @@ int CreateTangentDracoBuffer(draco::Mesh& dracoMesh, IGameMesh* pGameMesh, Mtl *
 //========================================================================
 // Register vertex color attribute buffer
 //========================================================================
-int CreateColDracoBuffer(draco::Mesh& dracoMesh, Mesh* pMesh, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap, bool hasAlpha)
+int CreateColDracoBuffer(draco::Mesh& dracoMesh, Mesh* pMesh, std::vector<int>& faceIDTable, std::vector<VertexProp>& VertPropTable, std::map<int, int>& vertPropMap)
 {
 	const int numv = static_cast<int>(VertPropTable.size());
 	const int numf = static_cast<int>(faceIDTable.size());
-	const int numComps = hasAlpha ? 4 : 3;
+
+	const bool hasVtxColor = pMesh->mapSupport(0) != FALSE && pMesh->mapFaces(0) && pMesh->mapVerts(0);
+	const bool hasVtxAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE && pMesh->mapFaces(MAP_ALPHA) && pMesh->mapVerts(MAP_ALPHA);
+	const int numComps = hasVtxAlpha ? 4 : 3;
 
 	draco::GeometryAttribute dracoColAttr;
 	dracoColAttr.Init( 	
@@ -520,19 +523,27 @@ int CreateColDracoBuffer(draco::Mesh& dracoMesh, Mesh* pMesh, std::vector<int>& 
 	const int colAttrId = dracoMesh.AddAttribute(dracoColAttr, false, numv);
 	dracoMesh.attribute(colAttrId)->SetExplicitMapping(numv);
 
-	const int numAlphaVerts = hasAlpha ? pMesh->getNumMapVerts(MAP_ALPHA) : 0;
+	const int numColorVerts = hasVtxColor ? pMesh->getNumMapVerts(0) : 0;
+	const int numAlphaVerts = hasVtxAlpha ? pMesh->getNumMapVerts(MAP_ALPHA) : 0;
 
 	uint32_t vIndex = 0;
 	for (const auto& vProp : VertPropTable) {
-		const UVVert p = pMesh->mapVerts(0)[vProp.vc];
-		float v[4] = { p.x, p.y, p.z, 1.0f };
+		float col[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
-		if (hasAlpha) {
-			// NOTE: vProp.vc is the color-map index. If alpha topology can differ, use a dedicated vProp.va instead.
-			if (vProp.va >= 0 && vProp.va < numAlphaVerts)
-				v[3] = pMesh->mapVerts(MAP_ALPHA)[vProp.vc].x;
+		if(hasVtxColor) {
+			if(vProp.vc >= 0 && vProp.vc < numColorVerts ) {
+				const UVVert& p = pMesh->mapVerts(0)[vProp.vc];
+				col[0] = p.x;
+				col[1] = p.y;
+				col[2] = p.z;
+			}
 		}
-		dracoMesh.attribute(colAttrId)->SetAttributeValue(draco::AttributeValueIndex(vIndex++), v);
+
+		if (hasVtxAlpha) {
+			if (vProp.va >= 0 && vProp.va < numAlphaVerts)
+				col[3] = pMesh->mapVerts(MAP_ALPHA)[vProp.va].x;
+		}
+		dracoMesh.attribute(colAttrId)->SetAttributeValue(draco::AttributeValueIndex(vIndex++), col);
 	}
 
 	for (uint32_t i = 0; i < VertPropTable.size(); ++i) {
@@ -868,8 +879,7 @@ bool glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 	}
 
 	if (flag.VColorUsed) {
-		const bool hasAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE
-			&& pMesh->mapFaces(MAP_ALPHA) && pMesh->mapVerts(MAP_ALPHA);
+		const bool hasAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE && pMesh->mapFaces(MAP_ALPHA) && pMesh->mapVerts(MAP_ALPHA);
 
 		tinygltf::Accessor acc;
 		acc.componentType = TINYGLTF_COMPONENT_TYPE_FLOAT;   // Draco decodes to float
@@ -880,7 +890,7 @@ bool glTFExporter_Core::CreateDracoMeshProp(tinygltf::Primitive &primitive, Mesh
 		m_model.accessors.push_back(acc);
 		primitive.attributes.insert(std::make_pair("COLOR_0", static_cast<int>(m_model.accessors.size() - 1)));
 
-		int id = CreateColDracoBuffer(dracoMesh, pMesh, faceIDTable, VertPropTable, vertPropMap, hasAlpha);
+		int id = CreateColDracoBuffer(dracoMesh, pMesh, faceIDTable, VertPropTable, vertPropMap);
 		dracoAttr.insert(std::make_pair("COLOR_0", id));
 	}
 

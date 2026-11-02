@@ -290,8 +290,11 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 	}
 	propFlag.mapCh1Used = MapUsed(pMtl) && pMesh->mapSupport(1);
 	propFlag.mapCh2Used = MapUsed(pMtl) && pMesh->mapSupport(2);
-
-	propFlag.VColorUsed = pNode->GetCVertMode() && pMesh->Map(0).tv;
+	
+	const bool hasVtxColor = pMesh->mapSupport(0) != FALSE && pMesh->mapFaces(0) != nullptr && pMesh->mapVerts(0) != nullptr;
+	const bool hasVtxAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE && pMesh->mapFaces(MAP_ALPHA) != nullptr && pMesh->mapVerts(MAP_ALPHA) != nullptr;
+	
+	propFlag.VColorUsed = pNode->GetCVertMode() && (hasVtxColor || hasVtxAlpha);
 
 	Matrix3 TangentTM;
 	GetTangentTM(pMtl, TangentTM);
@@ -734,12 +737,11 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 			mapCh = 0;
 
 			if (propFlag.VColorUsed) {
-				const bool hasAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE && pMesh->mapFaces(MAP_ALPHA) && pMesh->mapVerts(MAP_ALPHA);
-				const int  numAlphaVerts = hasAlpha ? pMesh->getNumMapVerts(MAP_ALPHA) : 0;
-				const int  numComps      = hasAlpha ? 4 : 3;
+				const int  numAlphaVerts = hasVtxAlpha ? pMesh->getNumMapVerts(MAP_ALPHA) : 0;
+				const int  numComps      = hasVtxAlpha ? 4 : 3;
 
 				tinygltf::Accessor acc;
-				acc.type  = hasAlpha ? TINYGLTF_TYPE_VEC4 : TINYGLTF_TYPE_VEC3;
+				acc.type  = hasVtxAlpha ? TINYGLTF_TYPE_VEC4 : TINYGLTF_TYPE_VEC3;
 				acc.count = vertNum;
 
 				tinygltf::BufferView bfView;
@@ -767,10 +769,10 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 					};
 
 				for (const auto& v : VertPropTable) {
-					const VertColor col = pMesh->mapVerts(0)[v.vc];
+					const UVVert& col = hasVtxColor ? pMesh->mapVerts(0)[v.vc] : UVVert(1.0f, 1.0f, 1.0f);
 
 					float a = 1.0f;
-					if (hasAlpha) {
+					if (hasVtxAlpha) {
 						if (v.va >= 0 && v.va < numAlphaVerts)
 							a = pMesh->mapVerts(MAP_ALPHA)[v.va].x;
 					}
@@ -779,14 +781,14 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 						*pDst++ = toByte(col.x);
 						*pDst++ = toByte(col.y);
 						*pDst++ = toByte(col.z);
-						*pDst++ = hasAlpha ? toByte(a) : 0;   // alpha or padding byte
+						*pDst++ = hasVtxAlpha ? toByte(a) : 0;   // alpha or padding byte
 					}
 					else {
 						float* f = reinterpret_cast<float*>(pDst);
 						*f++ = col.x;
 						*f++ = col.y;
 						*f++ = col.z;
-						if (hasAlpha) *f++ = a;
+						if (hasVtxAlpha) *f++ = a;
 						pDst = reinterpret_cast<uint8_t*>(f);
 					}
 				}
