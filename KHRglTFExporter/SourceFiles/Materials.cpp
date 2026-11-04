@@ -244,10 +244,14 @@ UINT glTFExporter_Core::CreateImage(const TCHAR *uri)
 	}
 	else {
 		buf = uri;
-		std::string s = WStringToString(buf);
-		const char *ext = strrchr(s.c_str(), '.') + 1;
-		std::string mime = MimeTypes::getType(ext);
+		// TODO: remove this is dead code, m_mimeTable is nowhere read or used
+		// Additionally, the insert adds a reference to a local variable, which is not valid outside of this code block
+		/*
+		std::string s = WStringToUTF8(buf);
+		const char* mimeStr = MatUtils::MimeOf(s);
+		std::string mime = mimeStr ? mimeStr : "";
 		m_mimeTable.insert(make_pair(&image, mime));
+		*/
 	}
 	m_imagePathTable.push_back(uri);
 	//DWORD ret;
@@ -846,7 +850,7 @@ BOOL glTFExporter_Core::CreateTextureTransformBlockWithOSL(tinygltf::Value::Obje
 		m_TexTransform_Used = TRUE;
 	}
 
-	return m_TexTransform_Used;
+	return (obj.size() > 0);
 }
 
 //======================================================================
