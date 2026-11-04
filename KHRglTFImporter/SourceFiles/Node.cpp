@@ -911,6 +911,11 @@ void glTFImporter_Core::CreateNodeInfosRec(cgltf_node *node, INode *targetParent
 		pObj->SetBox(Box3(Point3(-10, -10, -10), Point3(10, 10, 10)));
 		pNewObject = GetCOREInterface()->CreateObjectNode(pObj);
 
+		// Keep the glTF node's name, as meshes, cameras and lights do (and gltfx_reference.cpp does
+		// for its dummies); without one, the dummy keeps the default name 3ds Max gave it.
+		if (node->name && node->name[0])
+			pNewObject->SetName(StringToWString(node->name).c_str());
+
 		if (m_HideDummy) pNewObject->Hide(TRUE);
 	}
 
@@ -926,11 +931,18 @@ void glTFImporter_Core::CreateNodeInfosRec(cgltf_node *node, INode *targetParent
 	}
 
 	if (m_AvoidDupName) {
+		// Make the name unique only when another node already has it. The new node is in the scene
+		// under this name already, so it is taken out of the lookup first: MakeNameUnique would
+		// count the node itself and append a number to every name.
 		TSTR name = pNewObject->GetName();
-		if(_tcslen(name) == 0) {
+		const bool unnamed = (_tcslen(name) == 0);
+		if (unnamed) {
 			name = baseName;
 		}
-		GetCOREInterface()->MakeNameUnique(name);
+		pNewObject->SetName(_T(""));
+		if (unnamed || GetCOREInterface()->GetINodeByName(name) != nullptr) {
+			GetCOREInterface()->MakeNameUnique(name);
+		}
 		pNewObject->SetName(name);
 	}
 
