@@ -1,3 +1,4 @@
+// TODO: This file appears to be redundant and not used anywhere and may be removable ?
 #include "KHRglTFExporter.h"
 
 #define EPS 0.0001f
