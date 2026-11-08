@@ -376,7 +376,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		}
 		else if (primCat == PrimCategory::Lines) {
 			pointBuf.clear();
-			VertNum = flatCoordsBuf.size();
+			VertNum = flatCoordsBuf.size() / 3;
 			uint32_t vIdx = VertOffset;
 			for (std::vector<float>::iterator v = flatCoordsBuf.begin(); v != flatCoordsBuf.end(); v += 3, vIdx++) {
 				Point3 p(*v, *(v + 1), *(v + 2));
@@ -490,53 +490,52 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 
 		// Setting ShapeLine
 		if (primCat == PrimCategory::Lines ) {
-			std::vector<uint32_t> KnotIdList;
-			bool isClosed = false;
+			std::vector<uint32_t> knotIds;
 			if (mc) {
-				GetDracoMeshIndexList(mc->buffer_view, KnotIdList);
+				GetDracoMeshIndexList(mc->buffer_view, knotIds);
 			}
 			else {
 				if (pr->indices) {
 					std::vector<float> floatIndices;
 					GetDataList(floatIndices, pr->indices);
-					KnotIdList = FloatToUInt32IndexBuffer( floatIndices);
+					knotIds = FloatToUInt32IndexBuffer( floatIndices);
 				}
 				else {
 					for (uint32_t vIdx = 0; vIdx < flatCoordsBuf.size()/3; vIdx++) {
-						KnotIdList.push_back(vIdx);
+						knotIds.push_back(vIdx);
 					}
 				}
 			}
 			uint32_t vIdx = VertOffset;
 
-			auto plyShape = PolyShape();
-			auto plyLine = plyShape.NewLine();
-			plyLine->SetNumPts(static_cast<int>(KnotIdList.size()), FALSE);
+			const uint32_t knotCount = knotIds.size();
+			PolyLine line;
+			line.SetNumPts(static_cast<int>(knotCount), FALSE);
 
-			switch(pr->type) {
-				case cgltf_primitive_type_lines:
-					for(int idx = 0; idx < KnotIdList.size(); idx += 2) {
-						(*plyLine)[idx] = PolyPt(pointBuf[KnotIdList[idx]]);
-						(*plyLine)[idx+1] = PolyPt(pointBuf[KnotIdList[idx+1]]);						
-					}
-					break;
-				case cgltf_primitive_type_line_loop:
-						plyLine->Close();
-						[[fallthrough]];
-				case cgltf_primitive_type_line_strip:
-					for(int idx = 0; idx < KnotIdList.size(); idx++) {
-						auto pt = PolyPt(pointBuf[idx]);
-						(*plyLine)[idx] = pt;
-					}
-					if (KnotIdList[0] == KnotIdList[KnotIdList.size() - 1])	
-						plyLine->Close();
-					break;
-				default:
-					break;
+			if(knotCount > 0) {
+				switch(pr->type) {
+					case cgltf_primitive_type_lines:
+						for(int idx = 0; idx < knotCount; idx += 2) {
+							line[idx] = PolyPt(pointBuf[knotIds[idx]]);
+							line[idx + 1] = PolyPt(pointBuf[knotIds[idx + 1]]);
+						}
+						break;
+					case cgltf_primitive_type_line_loop:
+					case cgltf_primitive_type_line_strip:
+						for(int idx = 0; idx < knotCount; idx++)
+							line[idx] = PolyPt(pointBuf[knotIds[idx]]);
+						if(knotCount > 1 && pr->type == cgltf_primitive_type_line_loop || knotIds.front() == knotIds.back())
+							line.Close();
+						break;
+					default:
+						break;
+				}
 			}
 
 			// assign to our final Shape node
-			NewShape = plyShape;
+			auto shape = PolyShape();
+			shape.Append(line);
+			NewShape = shape;
 		}
 
 		// Set the Vertex normals
