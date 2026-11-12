@@ -508,7 +508,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			}
 			uint32_t vIdx = VertOffset;
 
-			const uint32_t knotCount = knotIds.size();
+			const size_t knotCount = knotIds.size();
 			PolyLine line;
 			line.SetNumPts(static_cast<int>(knotCount), FALSE);
 
