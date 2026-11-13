@@ -36,6 +36,19 @@ namespace fs = std::filesystem;
 
 //=============================================================================
 //=============================================================================
+// Replaces characters that are not allowed in a Windows file name (path separators, reserved characters, control characters) with '_'.
+// glTF image/texture names are free-form, so they may contain e.g. '/' (three.js: "fur-diffuse/texture", Cryengine: "glider_b_lv_a-diffuse/image").
+// Non-ASCII bytes are kept as they are.
+static std::string SanitizeFileName(const char* name)
+{
+	std::string s(name ? name : "");
+	for (char& c : s) {
+		const unsigned char uc = static_cast<unsigned char>(c);
+		if (uc < 0x20 || strchr("\\/:*?\"<>|", c)) c = '_';
+	}
+	return s;
+}
+
 tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &originalFname)
 {
 	tstring fname;
@@ -128,12 +141,13 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 			FILE* fp = nullptr;
 			errno_t err = fopen_s(&fp, name, "wb");
 			
-			if (err) { free(out_data); return StringToWString(name); }
+			if (err || !fp) { free(out_data); return _T(""); }
 
-			fwrite(out_data, ByteSize, 1, fp);
+			const bool written = (fwrite(out_data, ByteSize, 1, fp) == 1);
 			fclose(fp);
 			
 			free(out_data);
+			if (!written) return _T("");
 			fname = StringToWString(name);
 			m_EmbedFormat = TRUE;
 		}
@@ -204,7 +218,7 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 		char base_name[MAX_PATH];
 		//char buf[MAX_PATH];
 		if (image->name) {
-			strncpy_s(base_name, MAX_PATH, image->name, MAX_PATH);
+			strncpy_s(base_name, MAX_PATH, SanitizeFileName(image->name).c_str(), _TRUNCATE);
 			char* ptr = strchr(base_name, '.');
 			if (ptr) *(ptr + 1) = 0;
 			strcat_s(base_name, MAX_PATH, fileExt);
@@ -215,12 +229,13 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 			// eg jpg instead of png, see glass_vase_thickness_1k.jpg in the file below
 			// https://github.com/KhronosGroup/glTF-Sample-Assets/blob/edc7c9e67/Models/GlassVaseFlowers/glTF-Binary/GlassVaseFlowers.glb
 
-			fs::path texFile = tex->name;			
+			const std::string safeTexName = SanitizeFileName(tex->name);
+			fs::path texFile = safeTexName;			
 			if(texFile.has_extension() && texFile.extension() != fileExt) {
 				texFile.replace_extension(fileExt);
 				strncpy_s(base_name, MAX_PATH, texFile.string().c_str(), MAX_PATH);
 			}
-			else strncpy_s(base_name, MAX_PATH, tex->name, MAX_PATH);
+			else strncpy_s(base_name, MAX_PATH, safeTexName.c_str(), _TRUNCATE);
 		}
 		else sprintf_s(base_name, MAX_PATH, "texture_%d.%s", (UINT)m_TextureMap.size(), fileExt);
 
@@ -241,10 +256,13 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 
 		FILE* fp = nullptr;
 		errno_t err = _tfopen_s(&fp, fname.c_str(), _T("wb"));
+		bool written = false;
 		if (fp && err == 0) {
-			fwrite(ptr, size, 1, fp);
+			written = (fwrite(ptr, size, 1, fp) == 1);
 			fclose(fp);
 		}
+		// a texture that could not be written must not be returned as a valid file name
+		if (!written) return _T("");
 		//fname = StringToWString(name);
 
 		m_EmbedFormat = TRUE;
