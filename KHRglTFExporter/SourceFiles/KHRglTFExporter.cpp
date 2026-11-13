@@ -480,6 +480,13 @@ INT_PTR CALLBACK KHRglTFExporterOptionsDlgProc(HWND hWnd, UINT message, WPARAM w
 			SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_ADDSTRING, 0, (LPARAM)ver.c_str());
 		}
 		SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_SETCURSEL, HH_glTFFileVer, 0);
+#ifndef _DEBUG
+		// glTF 2.1 is not available in release builds: hide the version dropdown and its label (the version is forced to 2.0)
+		// TODO: remove this release/debug build UI discrepancy completly, this only leads to bug and issue oversights 
+		// Such conditional UI masking should be controlled by explicit, custom precompile #defines, not debug and release
+		ShowWindow(GetDlgItem(hWnd, IDC_VER_COMBO1), SW_HIDE);
+		ShowWindow(GetDlgItem(hWnd, IDC_VER_STATIC), SW_HIDE);
+#endif
 
 		EnableWindow(GetDlgItem(hWnd, IDC_FULLFRAME_CHK), HH_ExportAnimation);
 		EnableWindow(GetDlgItem(hWnd, IDC_ANIMPTR_CHK), HH_ExportAnimation);
@@ -594,7 +601,7 @@ INT_PTR CALLBACK KHRglTFExporterOptionsDlgProc(HWND hWnd, UINT message, WPARAM w
 			HH_Interactivity = IsDlgButtonChecked(hWnd, IDC_INTERACT_CHK);
 			HH_Quantization = IsDlgButtonChecked(hWnd, IDC_QUANT_CHK);
 
-				HH_glTFFileVer = SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_GETCURSEL, 0, 0);
+			HH_glTFFileVer = SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_GETCURSEL, 0, 0);
 
 			if (IsDlgButtonChecked(hWnd, IDC_MRO_RADIO1)) HH_MROMapExportMode = 0;
 			if (IsDlgButtonChecked(hWnd, IDC_MRO_RADIO2)) HH_MROMapExportMode = 1;
@@ -923,7 +930,12 @@ int glTFExporter_Core::ExportPreProcess(const TCHAR* filename, BOOL suppressProm
 	HH_Interactivity = MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("Interactivity"), 0, profle);
 	HH_CubicSplineT	= MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("CubicSplineT"), 0, profle);
 	HH_Quantization = MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("Quantization"), 0, profle);
+	
 	HH_glTFFileVer = MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("glTFFileVer"), 0, profle);
+
+	// Force glTF 2.0 
+	// TODO: refactor the complete option hanbdling
+	HH_glTFFileVer = 0;
 
 	HH_PostProcess = FALSE;
 
