@@ -36,15 +36,19 @@ namespace fs = std::filesystem;
 
 //=============================================================================
 //=============================================================================
-// Replaces characters that are not allowed in a Windows file name (path separators, reserved characters, control characters) with '_'.
-// glTF image/texture names are free-form, so they may contain e.g. '/' (three.js: "fur-diffuse/texture", Cryengine: "glider_b_lv_a-diffuse/image").
-// Non-ASCII bytes are kept as they are.
-static std::string SanitizeFileName(const char* name)
+// Replaces invalid windows filename characters (path separators, reserved characters, control characters) with '_'.
+// Non-ASCII bytes are kept as they are. 
+// Sets 'changed' to true when a character was replaced, so the caller can make the name unique
+static std::string SanitizeFileName(const char* name, bool* changed = nullptr)
 {
 	std::string s(name ? name : "");
+	if (changed) *changed = false;
 	for (char& c : s) {
 		const unsigned char uc = static_cast<unsigned char>(c);
-		if (uc < 0x20 || strchr("\\/:*?\"<>|", c)) c = '_';
+		if (uc < 0x20 || strchr("\\/:*?\"<>|", c)) {
+			c = '_';
+			if (changed) *changed = true;
+		}
 	}
 	return s;
 }
@@ -209,6 +213,7 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 	}
 	else if (strlen(image->mime_type) > 1) {
 		const char* fileExt = MimeTypes::getExtension(image->mime_type);
+		const size_t imageIdx = static_cast<size_t>(image - m_glTF_data->images);	// unique per image, used to disambiguate sanitized names
 		cgltf_buffer_view* bufferview = image->buffer_view;
 		cgltf_buffer* buffer = bufferview->buffer;
 		size_t offset = bufferview->offset;
@@ -216,11 +221,18 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 		void* ptr = (char*)(buffer->data) + offset;
 
 		char base_name[MAX_PATH];
-		//char buf[MAX_PATH];
 		if (image->name) {
-			strncpy_s(base_name, MAX_PATH, SanitizeFileName(image->name).c_str(), _TRUNCATE);
+			bool nameChanged = false;
+			std::string safeName = SanitizeFileName(image->name, &nameChanged);
+			if (nameChanged) {
+				// insert the image index before the first '.' (everything after it is replaced by the extension below)
+				const size_t dot = safeName.find('.');
+				safeName.insert(dot == std::string::npos ? safeName.size() : dot, "_" + std::to_string(imageIdx));
+			}
+			strncpy_s(base_name, MAX_PATH, safeName.c_str(), _TRUNCATE);
 			char* ptr = strchr(base_name, '.');
 			if (ptr) *(ptr + 1) = 0;
+			else strcat_s(base_name, MAX_PATH, ".");	// fileExt has no leading dot
 			strcat_s(base_name, MAX_PATH, fileExt);
 		}
 		else if(tex->name)	{
@@ -229,13 +241,14 @@ tstring glTFImporter_Core::CreateTextureFileName(cgltf_texture* tex, tstring &or
 			// eg jpg instead of png, see glass_vase_thickness_1k.jpg in the file below
 			// https://github.com/KhronosGroup/glTF-Sample-Assets/blob/edc7c9e67/Models/GlassVaseFlowers/glTF-Binary/GlassVaseFlowers.glb
 
-			const std::string safeTexName = SanitizeFileName(tex->name);
-			fs::path texFile = safeTexName;			
-			if(texFile.has_extension() && texFile.extension() != fileExt) {
+			bool texNameChanged = false;
+			fs::path texFile = SanitizeFileName(tex->name, &texNameChanged);
+			if (texNameChanged)
+				texFile.replace_filename(texFile.stem().string() + "_" + std::to_string(imageIdx) + texFile.extension().string());			
+			if(!texFile.has_extension() || texFile.extension() != fileExt) {
 				texFile.replace_extension(fileExt);
-				strncpy_s(base_name, MAX_PATH, texFile.string().c_str(), MAX_PATH);
 			}
-			else strncpy_s(base_name, MAX_PATH, safeTexName.c_str(), _TRUNCATE);
+			strncpy_s(base_name, MAX_PATH, texFile.string().c_str(), _TRUNCATE);
 		}
 		else sprintf_s(base_name, MAX_PATH, "texture_%d.%s", (UINT)m_TextureMap.size(), fileExt);
 
