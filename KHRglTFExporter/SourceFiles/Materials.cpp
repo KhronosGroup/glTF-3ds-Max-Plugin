@@ -461,13 +461,19 @@ BOOL MyTest(Texmap *pTex)
 		Point3 origin(0.0, 1.0, 0.0); // upper left corner
 		// inverse transforms to change reference 
 		Matrix3 translateToOrigin;
+		translateToOrigin.IdentityMatrix();
 		translateToOrigin.SetTrans(-pivot);
+		
 		Matrix3 rotate;
+		rotate.IdentityMatrix();
 		rotate.RotateZ(-rotationEuler.z);
+		
 		Matrix3 scaling;
+		scale.IdentityMatrix();
 		scaling.Scale(scale);
 		// because we want to keep the offset, so bring back to the center
 		Matrix3 translateBack;
+		translateBack.IdentityMatrix();
 		translateBack.SetTrans(center);
 		Matrix3 t = translateToOrigin * scaling * rotate * translateBack;
 		offset = origin * t;

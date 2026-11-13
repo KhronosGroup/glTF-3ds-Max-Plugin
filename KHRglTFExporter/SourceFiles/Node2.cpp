@@ -305,12 +305,9 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 	//------------------------------------------
 	//------------------------------------------
-	Matrix3 TangentOffsetTM;
-	{
-		TangentOffsetTM = pNode->GetNodeTM(m_time);
-		TangentOffsetTM.SetTrans(Point3(0, 0, 0));
-		TangentOffsetTM = Inverse(TangentOffsetTM);
-	}
+	Matrix3 TangentOffsetTM = pNode->GetNodeTM(m_time);
+	TangentOffsetTM.SetTrans(Point3(0, 0, 0));
+	TangentOffsetTM = Inverse(TangentOffsetTM);
 
 	int VariantCount = 0;
 	BOOL VariantMtl = IsVariantMtl(pMtl, VariantCount);
@@ -329,8 +326,8 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 	//------------------------------------------
 	//------------------------------------------
-	Matrix3 OffsetTM;
-	if (!m_ResetPivotTM) OffsetTM = GetOffsetTM(pNode);
+
+	const Matrix3 offsetTM = m_ResetPivotTM ? GetOffsetTM(pNode) : Matrix3::Identity;
 
 	//------------------------------------------
 	//------------------------------------------
@@ -373,7 +370,7 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 		//----------- Create Vertex table
 		bool dracoDone = false;
 		if (m_DracoCompress) {
-			dracoDone = CreateDracoMeshProp(primitive, pMesh, pNrmSpec, faceIDTable, VertPropTable, vertPropMap, propFlag, pMtl, pSkinMC, pMorphMod, OffsetTM);
+			dracoDone = CreateDracoMeshProp(primitive, pMesh, pNrmSpec, faceIDTable, VertPropTable, vertPropMap, propFlag, pMtl, pSkinMC, pMorphMod, offsetTM);
 			//GetMeshInfoXX(pMesh);
 		}
 		if (!dracoDone) {
@@ -429,7 +426,7 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 				}
 				bfView.target = TINYGLTF_TARGET_ARRAY_BUFFER;
 
-				Point3 minPos = pMesh->verts[pFace[faceIDTable[0]].v[0]] * m_scale * OffsetTM;
+				Point3 minPos = pMesh->verts[pFace[faceIDTable[0]].v[0]] * m_scale * offsetTM;
 				Point3 maxPos = minPos;
 
 				void* ptr = SecureMemory(bfView.byteLength);
@@ -439,7 +436,7 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 				for (auto v : VertPropTable) {
 					Point3 pp = pMesh->verts[v.originalIdx] * m_scale;
-					Point3 p = pp * OffsetTM;
+					Point3 p = pp * offsetTM;
 					if (m_Mesh_quantization_Used) {
 						if (p.x > quatInfo.meshScale)	p.x = quatInfo.meshScale;
 						if (p.y > quatInfo.meshScale)	p.y = quatInfo.meshScale;
@@ -537,7 +534,9 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 			//----------- Tangent
 			if (pGameMesh) {
-				Matrix3 RotationTM = Matrix3(Point3(-1, 0, 0), Point3(0, 1, 0), Point3(0, 0, 1), Point3(0, 0, 0));
+				// TODO: seems not to be used anywhere ?
+				Matrix3 rotTM = Matrix3::Identity;
+				rotTM.SetRow(0, Point3(-1, 0, 0));
 				mapCh = 1;
 
 				tinygltf::Accessor acc;// = Create_glTFAccessor();

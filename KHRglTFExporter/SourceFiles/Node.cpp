@@ -30,6 +30,10 @@
 Matrix3 GetOffsetTM(INode* pNode)
 {
 	Matrix3 offsetTM;
+#if MAX_VERSION_MAJOR < 24
+	offsetTM.IdentityMatrix();
+#endif
+
 	Point3 pos = pNode->GetObjOffsetPos();
 	offsetTM.PreTranslate(pos);
 	Quat quat = pNode->GetObjOffsetRot();
@@ -410,7 +414,7 @@ void glTFExporter_Core::CreateMtlIDTable(Mesh *pMesh, Mtl *pMtl, std::map<int, s
 BOOL GetTangentTM(Mtl* pMtl, Matrix3& mtx)
 {
 	//mtx = Matrix3(Point3(1, 0, 0), Point3(0, 0, -1), Point3(0, 1, 0), Point3(0, 0, 0));
-	mtx = Matrix3(Point3(1, 0, 0), Point3(0, 1, 0), Point3(0, 0, 1), Point3(0, 0, 0));//+++
+	mtx.IdentityMatrix();
 
 	if (!pMtl) return FALSE;
 
