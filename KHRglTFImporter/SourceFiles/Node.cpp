@@ -102,7 +102,7 @@ cgltf_accessor* findAttrAccessor(cgltf_primitive *pr, const char *str)
 
 //======================================================================
 //======================================================================
-float GetQuantScale(cgltf_accessor *acc)
+static float GetQuantScale(cgltf_accessor *acc)
 {
 	if (!acc) return 1.0f;
 	if (acc->normalized) {
@@ -133,7 +133,7 @@ enum class PrimCategory
 };
 
 
-PrimCategory GetPrimCategory(int primType)
+static PrimCategory GetPrimCategory(int primType)
 {
 	switch (primType)
 	{
@@ -153,6 +153,26 @@ PrimCategory GetPrimCategory(int primType)
 			return PrimCategory::Unknown;
 	}
 }
+
+static void ClearAllMapChannels(Mesh& mesh)
+{
+	// regular channels: 0 = vertex color, 1 = default UVs, 2..n = extra
+	for (int ch = 0; ch < mesh.getNumMaps(); ++ch) {
+		if (mesh.mapSupport(ch))
+			mesh.setMapSupport(ch, FALSE);   // frees tv and tf for that channel
+	}
+	// special channels (negative indices)
+	if (mesh.mapSupport(MAP_SHADING)) mesh.setMapSupport(MAP_SHADING, FALSE);
+	if (mesh.mapSupport(MAP_ALPHA))   mesh.setMapSupport(MAP_ALPHA,   FALSE);
+}
+
+static void PrintMeshStats(Mesh& mesh)
+{
+	mprintf(_T("verts=%d faces=%d maps=%d\n"), mesh.getNumVerts(), mesh.getNumFaces(), mesh.getNumMaps());
+	for(int i = 0; i < mesh.getNumMaps(); ++i)
+		mprintf(_T(" map %d: used=%d mapVerts=%d\n"), i, (int)mesh.mapSupport(i), mesh.getNumMapVerts(i));
+}
+
 // end of helpers
 
 // ======================================================================
@@ -347,6 +367,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		if(primCat == PrimCategory::Points) {
 			VertNum = flatCoordsBuf.size() / 3;
 			NewMesh.setNumVerts((int)(VertNum + VertOffset), TRUE);
+			NewMesh.setNumFaces(0);
 			UINT vIdx = VertOffset;
 			for (std::vector<float>::iterator v = flatCoordsBuf.begin(); v != flatCoordsBuf.end(); v += 3, vIdx++) {
 				Point3 p(*v, *(v + 1), *(v + 2));
@@ -355,7 +376,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		}
 		else if (primCat == PrimCategory::Lines) {
 			pointBuf.clear();
-			VertNum = flatCoordsBuf.size();
+			VertNum = flatCoordsBuf.size() / 3;
 			uint32_t vIdx = VertOffset;
 			for (std::vector<float>::iterator v = flatCoordsBuf.begin(); v != flatCoordsBuf.end(); v += 3, vIdx++) {
 				Point3 p(*v, *(v + 1), *(v + 2));
@@ -469,53 +490,52 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 
 		// Setting ShapeLine
 		if (primCat == PrimCategory::Lines ) {
-			std::vector<uint32_t> KnotIdList;
-			bool isClosed = false;
+			std::vector<uint32_t> knotIds;
 			if (mc) {
-				GetDracoMeshIndexList(mc->buffer_view, KnotIdList);
+				GetDracoMeshIndexList(mc->buffer_view, knotIds);
 			}
 			else {
 				if (pr->indices) {
 					std::vector<float> floatIndices;
 					GetDataList(floatIndices, pr->indices);
-					KnotIdList = FloatToUInt32IndexBuffer( floatIndices);
+					knotIds = FloatToUInt32IndexBuffer( floatIndices);
 				}
 				else {
 					for (uint32_t vIdx = 0; vIdx < flatCoordsBuf.size()/3; vIdx++) {
-						KnotIdList.push_back(vIdx);
+						knotIds.push_back(vIdx);
 					}
 				}
 			}
 			uint32_t vIdx = VertOffset;
 
-			auto plyShape = PolyShape();
-			auto plyLine = plyShape.NewLine();
-			plyLine->SetNumPts(static_cast<int>(KnotIdList.size()), FALSE);
+			const size_t knotCount = knotIds.size();
+			PolyLine line;
+			line.SetNumPts(static_cast<int>(knotCount), FALSE);
 
-			switch(pr->type) {
-				case cgltf_primitive_type_lines:
-					for(int idx = 0; idx < KnotIdList.size(); idx += 2) {
-						(*plyLine)[idx] = PolyPt(pointBuf[KnotIdList[idx]]);
-						(*plyLine)[idx+1] = PolyPt(pointBuf[KnotIdList[idx+1]]);						
-					}
-					break;
-				case cgltf_primitive_type_line_loop:
-						plyLine->Close();
-						[[fallthrough]];
-				case cgltf_primitive_type_line_strip:
-					for(int idx = 0; idx < KnotIdList.size(); idx++) {
-						auto pt = PolyPt(pointBuf[idx]);
-						(*plyLine)[idx] = pt;
-					}
-					if (KnotIdList[0] == KnotIdList[KnotIdList.size() - 1])	
-						plyLine->Close();
-					break;
-				default:
-					break;
+			if(knotCount > 0) {
+				switch(pr->type) {
+					case cgltf_primitive_type_lines:
+						for(int idx = 0; idx < knotCount; idx += 2) {
+							line[idx] = PolyPt(pointBuf[knotIds[idx]]);
+							line[idx + 1] = PolyPt(pointBuf[knotIds[idx + 1]]);
+						}
+						break;
+					case cgltf_primitive_type_line_loop:
+					case cgltf_primitive_type_line_strip:
+						for(int idx = 0; idx < knotCount; idx++)
+							line[idx] = PolyPt(pointBuf[knotIds[idx]]);
+						if(knotCount > 1 && pr->type == cgltf_primitive_type_line_loop || knotIds.front() == knotIds.back())
+							line.Close();
+						break;
+					default:
+						break;
+				}
 			}
 
 			// assign to our final Shape node
-			NewShape = plyShape;
+			auto shape = PolyShape();
+			shape.Append(line);
+			NewShape = shape;
 		}
 
 		// Set the Vertex normals
@@ -631,7 +651,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			*/
 		}
 		else if (tex1Num > 0) {
-			//NewMesh.setMapSupport(1, TRUE);
+			NewMesh.setMapSupport(1, TRUE);
 			NewMesh.setNumMapVerts(1, (int)(VertNum + VertOffset), TRUE);
 			NewMesh.setNumMapFaces(1, (int)(FaceNum + FaceOffset), TRUE);
 			TVFace *pTVFace = &NewMesh.mapFaces(1)[FaceOffset];
@@ -680,7 +700,7 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 			NewMesh.setNumMapFaces(2, FaceOffset, TRUE);
 		}
 		else if (tex2Num > 0) {
-			//NewMesh.setMapSupport(2, TRUE);
+			NewMesh.setMapSupport(2, TRUE);
 			NewMesh.setNumMapVerts(2, (int)(VertNum + VertOffset), TRUE);
 			NewMesh.setNumMapFaces(2, (int)(FaceNum + FaceOffset), TRUE);
 			MeshMap *pMap = &NewMesh.Map(2);
@@ -717,16 +737,28 @@ INode* glTFImporter_Core::CreateMaxNode(cgltf_node* node, INode* pParent)
 		SetNormal(&NewMesh, VertNormalTable);
 	}
 
-	INode* pNode = NULL;
-	if(ObjectType == PrimCategory::Points) {
-		TriObject* pTri = CreateNewTriObject();
-		NewMesh.buildBoundingBox();
-		pTri->mesh = NewMesh;
-		pNode = GetCOREInterface()->CreateObjectNode(pTri);
+	// Sanitize the constructed mesh structures
+	NewMesh.InvalidateGeomCache();
+	NewMesh.InvalidateTopologyCache();
+	NewMesh.buildBoundingBox();
+	NewMesh.BuildStripsAndEdges();
 
+	INode* pNode = NULL;
+
+	// Maybe 3ds Max will gain a dedicated points object in the future ?
+	if(ObjectType == PrimCategory::Points) {
+		// no faces means any existing mapping channels with data contain bogus/non-valid data 
+		// These might crash 3ds max later on (eg. IGame API), so in the future clear them 
+		// The code is currently disabled, as this has to be investigated more thoroughly and will be refactored away most likely
+		// if(NewMesh.getNumFaces() == 0 && NewMesh.getNumMaps() > 0) 
+		//	ClearAllMapChannels(NewMesh); 
+
+		TriObject* pTri = CreateNewTriObject();
+		pTri->mesh = NewMesh;
+
+		pNode = GetCOREInterface()->CreateObjectNode(pTri);
 		if (!pNode) return NULL;
 		
-		// Maybe 3ds Max will gain a dedicated points object in the future ?
 		pNode->VertTicks(TRUE); // enable VertexTicks, otherwise there would be no visual in the viewport
 	} 
 	else if (ObjectType == PrimCategory::Lines) {

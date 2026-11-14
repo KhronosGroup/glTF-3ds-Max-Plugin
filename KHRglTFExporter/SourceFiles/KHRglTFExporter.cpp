@@ -27,6 +27,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #include "KHRglTFExporter.h"
+#include <climits>
 #include <maxscript/maxscript.h>
 #include <AssetManagement/iassetmanager.h>
 #include <AssetManagement/AssetUser.h>
@@ -118,8 +119,8 @@ void LogOutput(const std::wstring& str, int pcs)
 
 	GetCOREInterface()->ProgressUpdate(pcs, TRUE, str.c_str());
 
-#ifdef _DEBUG
-#else
+	// Only debug builds should log to file
+#ifndef _DEBUG
 	return;
 #endif
 
@@ -128,7 +129,7 @@ void LogOutput(const std::wstring& str, int pcs)
 
 	FILE* fp = nullptr;
 	errno_t err = _tfopen_s(&fp, LogFileName.c_str(), _T("a+"));
-	if (err) return;
+	if (err || fp == nullptr ) return;
 
 	_ftprintf(fp, _T("%s\n"), str.c_str());
 
@@ -311,7 +312,7 @@ public:
 	virtual Class_ID      ClassID() override                        { return KHRglTFExporter_CLASS_ID; }
 	virtual const TCHAR*  Category() override                       { return GetString(IDS_CATEGORY); }
 
-	virtual const TCHAR*  InternalName() override                   { return _T("KHRglTFImporter"); } // Returns fixed parsable name (scripter-visible name)
+	virtual const TCHAR*  InternalName() override                   { return GetString(IDS_CLASS_NAME); } // Returns fixed parsable name (scripter-visible name)
 	virtual HINSTANCE     HInstance() override                      { return hInstance; } // Returns owning module handle
 #if MAX_RELEASE>=24000
 	const wchar_t *ClassDesc::NonLocalizedClassName(void) { return GetString(IDS_CLASS_NAME); }
@@ -479,6 +480,13 @@ INT_PTR CALLBACK KHRglTFExporterOptionsDlgProc(HWND hWnd, UINT message, WPARAM w
 			SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_ADDSTRING, 0, (LPARAM)ver.c_str());
 		}
 		SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_SETCURSEL, HH_glTFFileVer, 0);
+#ifndef _DEBUG
+		// glTF 2.1 is not available in release builds: hide the version dropdown and its label (the version is forced to 2.0)
+		// TODO: remove this release/debug build UI discrepancy completly, this only leads to bug and issue oversights 
+		// Such conditional UI masking should be controlled by explicit, custom precompile #defines, not debug and release
+		ShowWindow(GetDlgItem(hWnd, IDC_VER_COMBO1), SW_HIDE);
+		ShowWindow(GetDlgItem(hWnd, IDC_VER_STATIC), SW_HIDE);
+#endif
 
 		EnableWindow(GetDlgItem(hWnd, IDC_FULLFRAME_CHK), HH_ExportAnimation);
 		EnableWindow(GetDlgItem(hWnd, IDC_ANIMPTR_CHK), HH_ExportAnimation);
@@ -593,7 +601,7 @@ INT_PTR CALLBACK KHRglTFExporterOptionsDlgProc(HWND hWnd, UINT message, WPARAM w
 			HH_Interactivity = IsDlgButtonChecked(hWnd, IDC_INTERACT_CHK);
 			HH_Quantization = IsDlgButtonChecked(hWnd, IDC_QUANT_CHK);
 
-				HH_glTFFileVer = SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_GETCURSEL, 0, 0);
+			HH_glTFFileVer = SendMessage(GetDlgItem(hWnd, IDC_VER_COMBO1), CB_GETCURSEL, 0, 0);
 
 			if (IsDlgButtonChecked(hWnd, IDC_MRO_RADIO1)) HH_MROMapExportMode = 0;
 			if (IsDlgButtonChecked(hWnd, IDC_MRO_RADIO2)) HH_MROMapExportMode = 1;
@@ -786,45 +794,39 @@ int KHRglTFExporter::DoExport(const TCHAR* filename, ExpInterface* exporterInt, 
 	LogInit(tstring(filename));
 	LogOutput(_T("DoExport Start."));
 
-	LogOutput(_T("DoExport End."));
 
 	exportSelected = (options & SCENE_EXPORT_SELECTED) ? TRUE : FALSE;
 
-	return theExporterCore.ExportPreProcess(filename, suppressPrompts, 1);
+	int result =theExporterCore.ExportPreProcess(filename, suppressPrompts, 1);
+	LogOutput(_T("DoExport End - Result: ") + std::to_wstring(result));
+	return result;
 }
 
 // -----------------------------------------------------------
+// Legacy contract: returns the BASE of the whole buffer; callers add the byteOffset they captured before the call.
 // -----------------------------------------------------------
-void *glTFExporter_Core::SecureMemory(int size)
+void *glTFExporter_Core::SecureMemory(size_t size)
 {
-#if 1
-	m_BufferByteOffset += size;
-	void *ptr = realloc(m_glTf_Buffer, m_BufferByteOffset);
+	AppendBuffer(size);
+	return m_BinBuffer.data();
+}
 
-	m_glTf_Buffer = ptr;
-	//m_glTf_Buffer = m_BufferByteOffset;
 
-	return ptr;
-#else
-	if (size <= 0) return nullptr;
+// -----------------------------------------------------------
+// -----------------------------------------------------------
+uint8_t* glTFExporter_Core::AppendBuffer(size_t size)
+{
+	DbgAssert(m_BufferByteOffset == static_cast<int>(m_BinBuffer.size()));	// m_BufferByteOffset must only change in here
 
-	// Prevent overflow
-	size_t oldOffset = m_BufferByteOffset;
-	size_t newOffset = oldOffset + static_cast<size_t>(size);
-	if (newOffset < oldOffset) return nullptr; // overflow
-
-	void* newBuf = realloc(m_glTf_Buffer, newOffset);
-	if (!newBuf) {
-		// allocation failed, keep existing buffer intact
-		return nullptr;
+	const size_t oldSize = m_BinBuffer.size();
+	if(size > static_cast<size_t>(INT_MAX) - oldSize) {
+		// TODO: implement a centralized error-prompt mechanism that also supports NoPrompt flag
+		throw std::length_error("glTF binary buffer would exceed 2 GB");
 	}
 
-	m_glTf_Buffer = newBuf;
-	m_BufferByteOffset = newOffset;
-
-	// Return pointer to the start of newly allocated chunk
-	return static_cast<unsigned char*>(m_glTf_Buffer) + oldOffset;
-#endif
+	m_BinBuffer.resize(oldSize + size);	// new bytes are zero-initialized; throws std::bad_alloc on failure and leaves the offset untouched
+	m_BufferByteOffset = static_cast<int>(m_BinBuffer.size());
+	return m_BinBuffer.data() + oldSize;
 }
 
 // -----------------------------------------------------------
@@ -849,10 +851,7 @@ void glTFExporter_Core::FreeSceneData(void)
 		for(auto p : anim.samplers) delete &p;
 	}
 */
-	if (m_glTf_Buffer) {
-		free(m_glTf_Buffer);
-		m_glTf_Buffer = nullptr;
-	}
+	std::vector<uint8_t>().swap(m_BinBuffer);	// release the capacity, not just the size
 	m_BufferByteOffset = 0;
 
 
@@ -931,7 +930,12 @@ int glTFExporter_Core::ExportPreProcess(const TCHAR* filename, BOOL suppressProm
 	HH_Interactivity = MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("Interactivity"), 0, profle);
 	HH_CubicSplineT	= MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("CubicSplineT"), 0, profle);
 	HH_Quantization = MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("Quantization"), 0, profle);
+	
 	HH_glTFFileVer = MaxSDK::Util::GetPrivateProfileInt(_T("ExpSettings"), _T("glTFFileVer"), 0, profle);
+
+	// Force glTF 2.0 
+	// TODO: refactor the complete option hanbdling
+	HH_glTFFileVer = 0;
 
 	HH_PostProcess = FALSE;
 
@@ -1114,7 +1118,20 @@ int glTFExporter_Core::ExportPreProcess(const TCHAR* filename, BOOL suppressProm
 
 	m_IncorrectSkinDataFound = FALSE;
 
-	ExportScene(ver);
+	try {
+		ExportScene(ver);
+	}
+	catch (const std::exception& e) {
+		// Most likely the glTF binary buffer could not grow (allocation failure or > 2 GB). Clean up and fail the export instead of crashing Max.
+		GetCOREInterface()->ProgressEnd();
+		for (auto m : m_WireColorMtlMap) if (m.second) m.second->DeleteThis();	// must run before FreeSceneData clears the map
+		FreeSceneData();
+		if (!suppressPrompts) {
+			tstring msg = tstring(_T("The glTF export failed:\n")) + StringToWString(e.what());
+			MessageBox(NULL, msg.c_str(), _T("Export Error"), MB_OK | MB_ICONERROR);
+		}
+		return IMPEXP_FAIL;
+	}
 
 	GetCOREInterface()->ProgressEnd();
 
@@ -1184,9 +1201,9 @@ void glTFExporter_Core::ExportScene(int ver)
 	m_PhysicMtlTable.clear();
 	m_CollisionShapeTable.clear();
 
-	m_glTf_Buffer = NULL;
+	//  reset binary buffer and offsets
+	m_BinBuffer.clear();
 	m_BufferByteOffset = 0;
-	m_DracoBufferViewIndex = 0;
 
 	m_MtlTransmission_Used = FALSE;
 	m_MtlVolume_Used = FALSE;
@@ -1325,11 +1342,8 @@ void glTFExporter_Core::ExportScene(int ver)
 		GetInteractivityNodeList(interactiveExtensionList);
 	}
 
-	unsigned char *ptr = (unsigned char *)m_glTf_Buffer;
 	tinygltf::Buffer buffer;
-	for (int i = 0; i < m_BufferByteOffset;i++) {
-		buffer.data.push_back(*ptr++);
-	}
+	buffer.data.assign(m_BinBuffer.begin(), m_BinBuffer.end());
 
 	SetSceneExtensions();
 
@@ -1596,6 +1610,7 @@ std::wstring StringToWString(const char *oString)
 
 //================================================================
 // Truncate to the specified decimal places.
+// TODO: this should be inlined and put to the header
 //================================================================
 double truncateDecimal(float value) 
 {

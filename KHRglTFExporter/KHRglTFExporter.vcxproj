@@ -116,7 +116,6 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <PostBuildEvent>
-      <Command>echo F | xcopy /Y /Q "$(TargetPath)" "$(MSBuildProjectDirectory)\..\Packages\3ds Max $(MaxSDKRelease)\Plugins\$(TargetFileName)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(Configuration.Contains('Release'))">

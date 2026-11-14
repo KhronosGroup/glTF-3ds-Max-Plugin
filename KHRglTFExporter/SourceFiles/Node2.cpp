@@ -121,29 +121,39 @@ void BuildVertexPropTable(Mesh *pMesh, std::vector<int> &faceIDTabl, MeshNormalS
 	if(flag.mapCh1Used) pTVFace1 = pMesh->mapFaces(1);
 	TVFace* pTVFace2 = NULL;
 	if (flag.mapCh2Used) pTVFace2 = pMesh->mapFaces(2);
+	
+	
 	TVFace* pTVFaceVC = NULL;
-	if (flag.VColorUsed) pTVFaceVC = pMesh->mapFaces(0);
+	TVFace* pTVFaceVA = NULL;
 
-	for (auto fid1 : faceIDTabl) {
+	if(flag.VColorUsed) {
+		pTVFaceVC = pMesh->mapFaces(0);
+		pTVFaceVA = pMesh->mapFaces(MAP_ALPHA);
+	}
+
+	for (int fid1 : faceIDTabl) {
 		Face face1 = pMesh->faces[fid1];
 		MeshNormalFace nface1 = pNrmSpec->Face(fid1);
 		for (int j = 0; j < 3; j++) {
-			VertexProp str;
-			str.faceID = fid1;
-			str.corner = j;
-			str.originalIdx = face1.v[j];
-			str.nrmID = nface1.GetNormalID(j);
-			str.normal = pNrmSpec->GetNormalArray()[str.nrmID];
-			str.uv1 = (pTVFace1) ? pTVFace1[fid1].t[j] : -1;
-			str.uv2 = (pTVFace2) ? pTVFace2[fid1].t[j] : -1;
-			str.vc = (pTVFaceVC) ? pTVFaceVC[fid1].t[j] : -1;
-			int idx = SetVertPropMap(str);
+			VertexProp vtx;
+			vtx.faceID = fid1;
+			vtx.corner = j;
+			vtx.originalIdx = face1.v[j];
+			vtx.nrmID = nface1.GetNormalID(j);
+			vtx.normal = pNrmSpec->GetNormalArray()[vtx.nrmID];
+			vtx.uv1 = pTVFace1 ? pTVFace1[fid1].t[j] : -1;
+			vtx.uv2 = pTVFace2 ? pTVFace2[fid1].t[j] : -1;
+			vtx.vc = pTVFaceVC ? pTVFaceVC[fid1].t[j] : -1;
+			vtx.va = pTVFaceVA ? pTVFaceVA[fid1].t[j] : -1;
+			int idx = SetVertPropMap(vtx);
 			vertPropMap.insert(std::make_pair(fid1*10+j, idx));
 		}
 	}
 }
 
 //==========================================================
+// TODO: this needs refactor, leaving complexity and structural reasons aside
+// it also doesnt export vertices without faces ( eg. POINTS primitve )
 //==========================================================
 void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 {
@@ -151,7 +161,6 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 	Mesh* pMesh = NULL;
 	BezierShape* pShape = NULL;
 
-	vertPropFlag propFlag;
 	//------------------------------------------
 	//------------------------------------------
 	{
@@ -173,22 +182,6 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 			}
 		}
 	}
-
-	IGameNode* pGameNode = NULL;
-	IGameObject* pGameObject = NULL;
-	IGameMesh* pGameMesh = NULL;
-	if (m_ExportTangent) {
-		propFlag.pGameMesh = NULL;
-		pGameNode = m_pIGameScene->GetIGameNode(pNode);
-		pGameObject = pGameNode->GetIGameObject();
-		if (pGameObject->GetIGameType() == IGameObject::IGAME_MESH) {
-			pGameMesh = (IGameMesh*)pGameObject;
-			pGameMesh->InitializeData();
-			pGameMesh->InitializeBinormalData();
-			Tab<int> mapTbl = pGameMesh->GetActiveMapChannelNum();
-		}
-	}
-	propFlag.pGameMesh = pGameMesh;
 
 	//------------------------------------------
 	//------------------------------------------
@@ -260,6 +253,30 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 		CreateMorphVertMapTable(pMorphMod, pMesh, pNrmSpec, morphNormalMapList);
 	}
 
+	IGameNode* pGameNode = NULL;
+	IGameObject* pGameObject = NULL;
+	IGameMesh* pGameMesh = NULL;
+	
+
+	vertPropFlag propFlag;
+
+	// Skip tangent export on POINTS only meshes. See ATTENTION comment below
+	if (m_ExportTangent&&  pMesh->getNumFaces() > 0) {
+		propFlag.pGameMesh = NULL;
+		pGameNode = m_pIGameScene->GetIGameNode(pNode);
+		pGameObject = pGameNode->GetIGameObject();
+
+		if ( pGameObject && pGameObject->GetIGameType() == IGameObject::IGAME_MESH ) {
+			pGameMesh =  static_cast<IGameMesh*>(pGameObject);
+
+			// ATTENTION: crashes if the mesh has no faces ( POINTS ) but there are enabled map channels on the mesh ( points only mesh )
+			pGameMesh->InitializeData();
+			// TODO: this is DEAD CODE -> mapTbl is discarded after the if block without ever being used
+			Tab<int> mapTbl = pGameMesh->GetActiveMapChannelNum();
+		}
+	}
+	propFlag.pGameMesh = pGameMesh;
+
 	int mapCh = 1;
 
 	//------------------------------------------
@@ -273,8 +290,11 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 	}
 	propFlag.mapCh1Used = MapUsed(pMtl) && pMesh->mapSupport(1);
 	propFlag.mapCh2Used = MapUsed(pMtl) && pMesh->mapSupport(2);
-
-	propFlag.VColorUsed = pNode->GetCVertMode() && pMesh->Map(0).tv;
+	
+	const bool hasVtxColor = pMesh->mapSupport(0) != FALSE && pMesh->mapFaces(0) != nullptr && pMesh->mapVerts(0) != nullptr;
+	const bool hasVtxAlpha = pMesh->mapSupport(MAP_ALPHA) != FALSE && pMesh->mapFaces(MAP_ALPHA) != nullptr && pMesh->mapVerts(MAP_ALPHA) != nullptr;
+	
+	propFlag.VColorUsed = pNode->GetCVertMode() && (hasVtxColor || hasVtxAlpha);
 
 	Matrix3 TangentTM;
 	GetTangentTM(pMtl, TangentTM);
@@ -285,12 +305,9 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 	//------------------------------------------
 	//------------------------------------------
-	Matrix3 TangentOffsetTM;
-	{
-		TangentOffsetTM = pNode->GetNodeTM(m_time);
-		TangentOffsetTM.SetTrans(Point3(0, 0, 0));
-		TangentOffsetTM = Inverse(TangentOffsetTM);
-	}
+	Matrix3 TangentOffsetTM = pNode->GetNodeTM(m_time);
+	TangentOffsetTM.SetTrans(Point3(0, 0, 0));
+	TangentOffsetTM = Inverse(TangentOffsetTM);
 
 	int VariantCount = 0;
 	BOOL VariantMtl = IsVariantMtl(pMtl, VariantCount);
@@ -309,8 +326,8 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 	//------------------------------------------
 	//------------------------------------------
-	Matrix3 OffsetTM;
-	if (!m_ResetPivotTM) OffsetTM = GetOffsetTM(pNode);
+
+	const Matrix3 offsetTM = m_ResetPivotTM ? GetOffsetTM(pNode) : Matrix3::Identity;
 
 	//------------------------------------------
 	//------------------------------------------
@@ -351,11 +368,12 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 		int vertNum = VertPropTable.size();
 
 		//----------- Create Vertex table
+		bool dracoDone = false;
 		if (m_DracoCompress) {
-			CreateDracoMeshProp(primitive, pMesh, pNrmSpec, faceIDTable, VertPropTable, vertPropMap, propFlag, pMtl, pSkinMC, pMorphMod, OffsetTM);
+			dracoDone = CreateDracoMeshProp(primitive, pMesh, pNrmSpec, faceIDTable, VertPropTable, vertPropMap, propFlag, pMtl, pSkinMC, pMorphMod, offsetTM);
 			//GetMeshInfoXX(pMesh);
 		}
-		else {
+		if (!dracoDone) {
 			//----------- Index
 			{
 				size_t dataSize = faceIDTable.size() * 3;
@@ -408,7 +426,7 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 				}
 				bfView.target = TINYGLTF_TARGET_ARRAY_BUFFER;
 
-				Point3 minPos = pMesh->verts[pFace[faceIDTable[0]].v[0]] * m_scale * OffsetTM;
+				Point3 minPos = pMesh->verts[pFace[faceIDTable[0]].v[0]] * m_scale * offsetTM;
 				Point3 maxPos = minPos;
 
 				void* ptr = SecureMemory(bfView.byteLength);
@@ -418,7 +436,7 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 				for (auto v : VertPropTable) {
 					Point3 pp = pMesh->verts[v.originalIdx] * m_scale;
-					Point3 p = pp * OffsetTM;
+					Point3 p = pp * offsetTM;
 					if (m_Mesh_quantization_Used) {
 						if (p.x > quatInfo.meshScale)	p.x = quatInfo.meshScale;
 						if (p.y > quatInfo.meshScale)	p.y = quatInfo.meshScale;
@@ -516,7 +534,9 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 			//----------- Tangent
 			if (pGameMesh) {
-				Matrix3 RotationTM = Matrix3(Point3(-1, 0, 0), Point3(0, 1, 0), Point3(0, 0, 1), Point3(0, 0, 0));
+				// TODO: seems not to be used anywhere ?
+				Matrix3 rotTM = Matrix3::Identity;
+				rotTM.SetRow(0, Point3(-1, 0, 0));
 				mapCh = 1;
 
 				tinygltf::Accessor acc;// = Create_glTFAccessor();
@@ -714,77 +734,68 @@ void glTFExporter_Core::ExCreateMeshData(INode* pNode, tinygltf::Node& node)
 
 			//----------- Vertex Color
 			mapCh = 0;
-			if (propFlag.VColorUsed) {
-				tinygltf::Accessor acc;// = Create_glTFAccessor();
-				acc.componentType = m_Mesh_quantization_Used ? TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE : TINYGLTF_COMPONENT_TYPE_FLOAT;
-				acc.type = TINYGLTF_TYPE_VEC3;
-				acc.count = vertNum;
-				tinygltf::BufferView bfView;// = Create_glTFBufferView();
 
-				bfView.buffer = 0;
+			if (propFlag.VColorUsed) {
+				const int  numAlphaVerts = hasVtxAlpha ? pMesh->getNumMapVerts(MAP_ALPHA) : 0;
+				const int  numComps      = hasVtxAlpha ? 4 : 3;
+
+				tinygltf::Accessor acc;
+				acc.type  = hasVtxAlpha ? TINYGLTF_TYPE_VEC4 : TINYGLTF_TYPE_VEC3;
+				acc.count = vertNum;
+
+				tinygltf::BufferView bfView;
+				bfView.buffer     = 0;
 				bfView.byteOffset = m_BufferByteOffset;
+				bfView.target     = TINYGLTF_TARGET_ARRAY_BUFFER;
+
 				if (m_Mesh_quantization_Used) {
-					bfView.byteLength = acc.count * 4;
-					bfView.byteStride = 4;
+					acc.componentType = TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE;
+					acc.normalized    = true; // required for quanitzation
+					bfView.byteLength = acc.count * 4;   // RGBA8, or RGB8 + 1 padding byte
+					bfView.byteStride = 4;               // elements must be 4-byte aligned
 				}
 				else {
-					bfView.byteLength = acc.count * sizeof(float) * 3;
+					acc.componentType = TINYGLTF_COMPONENT_TYPE_FLOAT;
+					bfView.byteLength = acc.count * sizeof(float) * numComps;
 				}
-				bfView.target = TINYGLTF_TARGET_ARRAY_BUFFER;
 
-				MeshMap* pMap = &pMesh->Map(0);
-				UVVert* pSrcUV = pMap->tv;
-				TVFace* pTVFace = pMesh->mapFaces(0);
-				Point3 minUV = pSrcUV[pTVFace[faceIDTable[0]].t[0]];
-				Point3 maxUV = minUV;
+				uint8_t* ptr = static_cast<uint8_t*>(SecureMemory(bfView.byteLength));
+				uint8_t* pDst = ptr + bfView.byteOffset;
 
-				void* ptr = SecureMemory(bfView.byteLength);
-				float* pTexUV = (float*)((char*)ptr + bfView.byteOffset);
-				char* pTexUVQ = (char*)((char*)ptr + bfView.byteOffset);
+				auto toByte = [](float f) -> uint8_t {
+					f = f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
+					return static_cast<uint8_t>(std::lround(f * 255.0f));
+					};
 
-				for (auto v : VertPropTable) {
-					UVVert p = pMesh->mapVerts(0)[v.vc];
-					if (p.x > maxUV.x)	maxUV.x = p.x;
-					if (p.y > maxUV.y)	maxUV.y = p.y;
-					if (p.z > maxUV.z)	maxUV.z = p.z;
-					if (p.x < minUV.x)	minUV.x = p.x;
-					if (p.y < minUV.y)	minUV.y = p.y;
-					if (p.z < minUV.z)	minUV.z = p.z;
+				for (const auto& v : VertPropTable) {
+					const UVVert& col = hasVtxColor ? pMesh->mapVerts(0)[v.vc] : UVVert(1.0f, 1.0f, 1.0f);
+
+					float a = 1.0f;
+					if (hasVtxAlpha) {
+						if (v.va >= 0 && v.va < numAlphaVerts)
+							a = pMesh->mapVerts(MAP_ALPHA)[v.va].x;
+					}
 
 					if (m_Mesh_quantization_Used) {
-						*pTexUVQ++ = (unsigned char)round(p.x * 255.0);
-						*pTexUVQ++ = (unsigned char)round(p.y * 255.0);
-						*pTexUVQ++ = (unsigned char)round(p.z * 255.0);
-						*pTexUVQ++ = 0;
+						*pDst++ = toByte(col.x);
+						*pDst++ = toByte(col.y);
+						*pDst++ = toByte(col.z);
+						*pDst++ = hasVtxAlpha ? toByte(a) : 0;   // alpha or padding byte
 					}
 					else {
-						*pTexUV++ = p.x;
-						*pTexUV++ = p.y;
-						*pTexUV++ = p.z;
+						float* f = reinterpret_cast<float*>(pDst);
+						*f++ = col.x;
+						*f++ = col.y;
+						*f++ = col.z;
+						if (hasVtxAlpha) *f++ = a;
+						pDst = reinterpret_cast<uint8_t*>(f);
 					}
-				}
-
-				if (m_Mesh_quantization_Used) {
-					acc.maxValues.push_back(round(maxUV.x * 255.0f));
-					acc.maxValues.push_back(round(maxUV.y * 255.0f));
-					acc.maxValues.push_back(round(maxUV.z * 255.0f));
-					acc.minValues.push_back(round(minUV.x * 255.0f));
-					acc.minValues.push_back(round(minUV.y * 255.0f));
-					acc.minValues.push_back(round(minUV.z * 255.0f));
-				}
-				else{
-					acc.maxValues.push_back(maxUV.x);
-					acc.maxValues.push_back(maxUV.y);
-					acc.maxValues.push_back(maxUV.z);
-					acc.minValues.push_back(minUV.x);
-					acc.minValues.push_back(minUV.y);
-					acc.minValues.push_back(minUV.z);
 				}
 
 				m_model.bufferViews.push_back(bfView);
-				acc.bufferView = m_model.bufferViews.size() - 1;
+				acc.bufferView = static_cast<int>(m_model.bufferViews.size() - 1);
 				m_model.accessors.push_back(acc);
-				primitive.attributes.insert(std::make_pair("COLOR_0", m_model.accessors.size() - 1));
+				primitive.attributes.insert(std::make_pair("COLOR_0", static_cast<int>(m_model.accessors.size() - 1)));
 			}
 
 			//----------- Skin Joint/Weight
