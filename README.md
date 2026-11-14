@@ -41,7 +41,10 @@ To build or use this project, the following environment is required:
 - **MSVC v143 - VS 2022 C++ x64/x86 build tools**: For 3ds Max 2026, and 2027
 - **MSVC v142 - VS 2019 C++ x64/x86 build tools**: For 3ds Max 2023, 2024 and 2025
 - **MSVC v141 - VS 2017 C++ x64/x86 build tools**: For 3ds Max 2020, 2021 and 2022
-- **Git** and **CMake** executables in your PATH to build the 3rd-party dependencies
+- **Git** and **CMake** executables in your PATH (needed for building the 3rd-party dependencies from source)
+
+> 💡 Prebuilt 3rd-party dependencies are available as a download, see the section [🛠️ Setting Up the 3rd-Party Dependencies](README.md#️-setting-up-the-3rd-party-dependencies) below.
+
 
 ### 🧰 Required SDKs
 
@@ -65,11 +68,21 @@ If environment variables are missing, you must manually set them to point to the
 | 2026            | `ADSK_3DSMAX_SDK_2026`    |
 | 2027            | `ADSK_3DSMAX_SDK_2027`    |
 
-### 🛠️ Initial Building of 3rd-Party Dependencies
+### 🛠️ Setting Up the 3rd-Party Dependencies
 
 The project depends on several 3rd-party libraries (**draco, jsoncpp, KTX, libwebp**), which must be available in the
 **`3rdParty\_dist_v141\Debug`** and **`3rdParty\_dist_v141\Release`** directories.
 The necessary header files are expected in subfolders of **`3rdParty\_dist_v141\include`**
+
+> [!TIP]
+> **Prebuilt 3rd-party dependencies:** 
+For convenience, a zip with the precompiled libraries and headers is available in the [Release Section](https://github.com/KhronosGroup/glTF-3ds-Max-Plugin/releases/tag/3rdparty-v141-20261114) on GitHub.
+>
+> 1. Download the zip from the release.
+> 2. Extract it into the project root, keeping the archive's folder structure (it creates `3rdParty\_dist_v141`).
+>
+> The project then builds without fetching the dependencies from their external repositories first. The build scripts detect the
+> existing `_dist_v141` and skip rebuilding it. To build the dependencies from source instead, follow the steps below.
 
 - A batch script is provided to build these libraries from source: **`3rdParty\build_dependencies.cmd`**
 - The script should be run once from the **x64 Native Tools Command Prompt for VS 2022**.
